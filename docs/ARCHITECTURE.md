@@ -19,12 +19,14 @@ Browser
   → Next.js App Router pages and layouts
     → feature services and queries
       → data-access adapters
-        → Supabase PostgreSQL (later)
+        → Supabase PostgreSQL
           → PostGIS geographical queries (later)
 ```
 
-The current foundation has no database connection. When persistence is introduced, server-side code
-should own privileged access and browser code should receive only the data required for its view.
+The foundation has a Supabase client configured with a project URL and publishable key. The
+`/api/venues` route queries published branches and returns only public fields. Privileged access is
+not used by the application. Additional writes and user-specific queries should stay in server-side
+data-access modules.
 
 ## Source layout
 
@@ -55,14 +57,19 @@ address, coordinates, hours, Google Maps URL, focus evaluation, nearby-universit
 time-based crowd observations. Scoring definitions should be versioned so displayed ratings remain
 explainable when the methodology changes.
 
-No production schema is defined yet. Before implementation, document the source and update policy for
-each field, decide which fields may be unknown, and design row-level security alongside access needs.
+The connected project currently has `cities`, `venues`, `venue_branches`, `opening_hours`, `reviews`,
+and `review_scores`. All application tables have row-level security enabled. The public branch query
+uses `venues`, `cities`, and `opening_hours` relations and never requests reviewer identity. The
+tables were created outside this repository; future schema changes should be captured as SQL
+migrations after reconciling the project's existing migration history.
 
 ## Supabase and PostGIS
 
-Supabase PostgreSQL is the proposed persistence layer. PostGIS may later support radius, distance, and
-nearest-venue queries. Database access should be introduced through server-only modules, with generated
-database types checked into the repository when a schema exists.
+Supabase PostgreSQL is the persistence layer. The current client uses only the publishable key;
+row-level security limits public reads to published branches and approved reviews. PostGIS is
+installed in the connected project, but radius, distance, and nearest-venue queries are not yet
+implemented. Privileged database access should be introduced through server-only modules, with
+generated database types checked into the repository after the schema is stabilized.
 
 Public environment values may use the `NEXT_PUBLIC_` prefix. Service-role keys and other privileged
 credentials must never be exposed to client bundles or committed to the repository.
@@ -105,7 +112,7 @@ before testable behavior exists.
 
 ## Deferred decisions
 
-- Final database schema, row-level security policies, and migrations.
+- Reconcile the externally created database schema with versioned migrations and review all grants.
 - Authentication and user accounts.
 - A places or opening-hours data provider.
 - Analytics, monitoring, and deployment platform.

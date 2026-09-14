@@ -1,0 +1,43 @@
+export const messages = {
+  en: {
+    home: "Home",
+    places: "Places",
+    about: "About",
+    journal: "Journal",
+    reachUs: "Reach Us",
+    beginJourney: "Begin Journey",
+    findYourPlace: "Find Your Place",
+    heroBefore: "Where ",
+    heroFocus: "focus",
+    heroMiddle: " rises ",
+    heroEnd: "through the silence.",
+    heroDescription:
+      "We find places made for deep thinkers, ambitious students, and focused work. Amid the noise, discover the cafés, libraries, and spaces where your best work can begin.",
+    previewEyebrow: "A calmer way to choose",
+    previewTitle: "Your next focus spot is closer than you think.",
+    previewDescription:
+      "Soon, a few thoughtful questions will help you find the right place for this particular session.",
+    previewStatus: "Discovery experience in progress",
+    backHome: "Back home",
+  },
+  ar: {
+    home: "الرئيسية",
+    places: "الأماكن",
+    about: "عن فوكس",
+    journal: "المجلة",
+    reachUs: "تواصل معنا",
+    beginJourney: "ابدأ رحلتك",
+    findYourPlace: "لقّ مكانك",
+    heroBefore: "وين تلقى ",
+    heroFocus: "تركيزك",
+    heroMiddle: "؟ ",
+    heroEnd: "خلّ المكان يساعدك.",
+    heroDescription:
+      "ندور لك على أماكن تناسب المذاكرة والشغل بتركيز. من المقاهي للمكتبات، خلنا نلقى لك المكان اللي تبدأ فيه أحسن جلسة.",
+    previewEyebrow: "اختيار مكانك صار أهدأ",
+    previewTitle: "مكان تركيزك الجاي أقرب مما تتوقع.",
+    previewDescription: "قريبًا، كم سؤال بسيط يساعدنا نلقى لك المكان المناسب لهالجلسة بالذات.",
+    previewStatus: "تجربة البحث قيد التجهيز",
+    backHome: "ارجع للرئيسية",
+  },
+} as const;

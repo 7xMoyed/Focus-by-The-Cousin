@@ -13,6 +13,10 @@
   --color-accent: hsl(var(--accent));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
+  --color-panel: hsl(var(--panel));
+  --color-panel-foreground: hsl(var(--panel-foreground));
+  --color-panel-muted: hsl(var(--panel-muted));
+  --color-brand-ink: hsl(var(--brand-ink));
 }
 
 * {
@@ -31,9 +35,15 @@ body {
   font-family: var(--font-body);
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+html[lang="ar"] body {
+  font-family: var(--font-thmanyah), sans-serif;
+}
+
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button {
@@ -53,6 +63,11 @@ button {
   box-shadow: inset 0 1px 1px rgb(255 255 255 / 10%);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
+  text-shadow: 0 1px 8px rgb(0 0 0 / 70%);
+}
+
+.liquid-glass.hero-cta {
+  background: rgb(0 20 33 / 32%);
 }
 
 .liquid-glass::before {

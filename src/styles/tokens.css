@@ -9,6 +9,10 @@
   --accent: 0 0% 10%;
   --border: 0 0% 18%;
   --input: 0 0% 18%;
+  --panel: 0 0% 100%;
+  --panel-foreground: 222 47% 11%;
+  --panel-muted: 210 40% 98%;
+  --brand-ink: 201 91% 15%;
   --font-display: "Instrument Serif", serif;
   --font-body: "Inter", sans-serif;
 }
