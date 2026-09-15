@@ -1,7 +1,7 @@
 "use client";
 
 import { LanguageSwitcher } from "@/components/experience/language-switcher";
-import { Button } from "@/components/ui/button";
+import { HeaderActions } from "@/components/layout/header-actions";
 import { useLocale } from "@/features/i18n/locale-provider";
 import { messages } from "@/features/i18n/messages";
 
@@ -12,17 +12,17 @@ export function SiteHeader() {
   const copy = messages[locale];
 
   return (
-    <header className="relative z-10 mx-auto flex w-full max-w-7xl flex-row items-center justify-between gap-3 px-5 py-6 sm:px-8">
+    <header className="relative z-20 mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-3 px-5 pt-5 pb-3 sm:flex-nowrap sm:px-8 sm:py-6">
       <a
         href="#main-content"
         dir="ltr"
-        className="shrink-0 text-xl tracking-tight whitespace-nowrap text-foreground sm:text-3xl"
+        className="shrink-0 text-lg tracking-tight whitespace-nowrap text-foreground min-[390px]:text-xl sm:text-3xl"
         style={{ fontFamily: '"Instrument Serif", serif' }}
       >
         Focus by The Cousin<sup className="text-xs">®</sup>
       </a>
 
-      <nav className="hidden items-center gap-7 md:flex" aria-label="Primary navigation">
+      <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
         {navigation.map((item, index) => (
           <a
             key={item}
@@ -37,13 +37,9 @@ export function SiteHeader() {
         ))}
       </nav>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="order-3 flex w-full shrink-0 items-center justify-center gap-2 sm:order-none sm:w-auto sm:justify-end">
+        <HeaderActions />
         <LanguageSwitcher />
-        <div className="hidden sm:block">
-          <Button className="liquid-glass rounded-full px-4 py-2.5 text-sm whitespace-nowrap text-foreground transition-transform duration-300 hover:scale-[1.03] sm:px-6">
-            {copy.beginJourney}
-          </Button>
-        </div>
       </div>
     </header>
   );
