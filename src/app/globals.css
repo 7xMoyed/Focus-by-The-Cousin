@@ -50,6 +50,131 @@ button {
   font: inherit;
 }
 
+.find-primary-button {
+  display: inline-flex;
+  min-height: 3.25rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: hsl(var(--brand-ink));
+  padding-inline: 1.75rem;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: 0 12px 28px rgb(3 49 70 / 18%);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease;
+}
+
+.find-primary-button:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 16px 34px rgb(3 49 70 / 24%);
+}
+
+.find-primary-button:focus-visible,
+.find-back-button:focus-visible,
+.find-choice:focus-visible,
+.find-input:focus-visible {
+  outline: 2px solid rgb(3 105 161 / 70%);
+  outline-offset: 2px;
+}
+
+.find-back-button {
+  display: inline-flex;
+  min-height: 2.5rem;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 9999px;
+  padding-inline: 0.75rem;
+  color: rgb(71 85 105);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.find-back-button:hover {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.find-choice {
+  display: flex;
+  min-height: 4.25rem;
+  width: 100%;
+  cursor: pointer;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 1.1rem;
+  background: rgb(255 255 255 / 85%);
+  padding: 0.9rem 1rem;
+  text-align: start;
+  box-shadow: 0 5px 18px rgb(15 23 42 / 3%);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.find-choice:hover {
+  transform: translateY(-1px);
+  border-color: rgb(186 230 253);
+  box-shadow: 0 8px 22px rgb(14 116 144 / 8%);
+}
+
+.find-choice-selected {
+  transform: scale(1.01);
+  border-color: rgb(125 211 252);
+  background: rgb(240 249 255);
+  box-shadow: 0 10px 25px rgb(14 116 144 / 10%);
+}
+
+.find-field-label {
+  margin-bottom: 0.5rem;
+  display: block;
+  color: rgb(30 41 59);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.find-input {
+  min-height: 3.25rem;
+  width: 100%;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 1rem;
+  background: white;
+  padding-inline: 1rem;
+  color: rgb(15 23 42);
+  font-size: 1rem;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 3%);
+}
+
+.find-input::placeholder {
+  color: rgb(148 163 184);
+}
+
+@keyframes find-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-find-step {
+  animation: find-step-in 280ms ease-out both;
+}
+
 ::selection {
   background: rgb(255 255 255 / 22%);
 }
@@ -185,6 +310,10 @@ button {
   .animate-fade-rise,
   .animate-fade-rise-delay,
   .animate-fade-rise-delay-2 {
+    animation: none;
+  }
+
+  .animate-find-step {
     animation: none;
   }
 }

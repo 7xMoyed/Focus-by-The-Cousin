@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ExperienceShell } from "@/components/experience/experience-shell";
-import { FindPreview } from "@/features/find/find-preview";
+import { DiscoveryFlow } from "@/features/find/discovery-flow";
 
 export const metadata: Metadata = {
   title: "Find Your Place",
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function FindPage() {
   return (
     <ExperienceShell>
-      <FindPreview />
+      <DiscoveryFlow />
     </ExperienceShell>
   );
 }
