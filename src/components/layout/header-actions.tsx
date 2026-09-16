@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ContactForm } from "@/features/contact/contact-form";
 import { useLocale } from "@/features/i18n/locale-provider";
 import { messages } from "@/features/i18n/messages";
 
@@ -56,7 +57,7 @@ export function HeaderActions() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="header-dialog-title"
-            className="w-full max-w-md rounded-[1.75rem] border border-white/70 bg-white p-7 text-slate-950 shadow-[0_28px_90px_rgba(0,20,35,0.4)] sm:p-9"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.75rem] border border-white/70 bg-white p-7 text-slate-950 shadow-[0_28px_90px_rgba(0,20,35,0.4)] sm:p-9"
           >
             <p className="text-sm font-medium text-[#8a742d]">
               {openPanel === "about" ? "✨ Focus by The Cousin" : "💬 Focus"}
@@ -65,6 +66,7 @@ export function HeaderActions() {
               {title}
             </h2>
             <p className="mt-4 text-base leading-7 text-slate-600">{description}</p>
+            {openPanel === "contact" ? <ContactForm /> : null}
             <button
               type="button"
               onClick={() => setOpenPanel(null)}

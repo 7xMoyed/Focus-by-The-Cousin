@@ -55,7 +55,18 @@ const common = {
     duplicateEmail: "هذا البريد مستخدم من قبل. جرّب تسجيل الدخول أو استخدم بريدًا آخر.",
     success: "تم 👌 خلنا نوريك أماكنك",
     priorityRequired: "اختر شيئًا واحدًا على الأقل.",
+    priorityLimit: "اختر إلى 3 أشياء بس 👌",
     locationRequired: "حدد المنطقة أو استخدم موقعك للمتابعة.",
+    signupTab: "حساب جديد",
+    loginTab: "تسجيل الدخول",
+    loginDescription: "عندك حساب؟ ادخل ونرجع لك جلستك بدون ما تضيع اختياراتك.",
+    login: "ادخل حسابي",
+    loggingIn: "نسجّل دخولك…",
+    wrongCredentials: "الإيميل أو الباسورد مو صحيح.",
+    networkError: "صار شي بسيط، جرّب مرة ثانية.",
+    confirmEmailTitle: "باقي تأكيد بسيط ✉️",
+    confirmEmailDescription: "أرسلنا لك رابط تأكيد على إيميلك. افتحه ونكمل مباشرة لأماكنك.",
+    sessionSaveError: "ما قدرنا نحفظ جلستك، جرّب مرة ثانية.",
   },
   en: {
     intro:
@@ -108,7 +119,19 @@ const common = {
     duplicateEmail: "That email is already in use. Try signing in or use another email.",
     success: "You're in 👌 Let’s show you your matches",
     priorityRequired: "Choose at least one priority.",
+    priorityLimit: "Choose up to 3 only 👌",
     locationRequired: "Choose an area or share your location to continue.",
+    signupTab: "Sign up",
+    loginTab: "Log in",
+    loginDescription: "Already have an account? Log in and we’ll keep this session with you.",
+    login: "Log in",
+    loggingIn: "Logging you in…",
+    wrongCredentials: "That email or password isn’t right.",
+    networkError: "Something went wrong. Please try again.",
+    confirmEmailTitle: "One quick confirmation ✉️",
+    confirmEmailDescription:
+      "We sent a confirmation link to your email. Open it and we’ll take you straight to your matches.",
+    sessionSaveError: "We couldn’t save this session. Please try again.",
   },
 };
 
@@ -140,16 +163,6 @@ export const sessionChoices: Record<Locale, Choice<SessionType>[]> = {
       label: "💻 شغل أو Remote Work",
       description: "لابتوب، إنجاز، ويمكن كم مكالمة.",
     },
-    {
-      value: "light-study",
-      label: "📖 قراءة ومذاكرة خفيفة",
-      description: "جلسة أهدى وما تحتاج تجهيز ثقيل.",
-    },
-    {
-      value: "online-class",
-      label: "🎧 محاضرة أو اجتماع أونلاين",
-      description: "نت كويس ومكان يناسب السماعات والكلام.",
-    },
     { value: "quick-study", label: "⚡ جلسة سريعة", description: "ساعة أو أقل ونبي ننجز." },
   ],
   en: [
@@ -167,16 +180,6 @@ export const sessionChoices: Record<Locale, Choice<SessionType>[]> = {
       value: "remote-work",
       label: "💻 Remote Work",
       description: "Laptop work, productivity and maybe a call.",
-    },
-    {
-      value: "light-study",
-      label: "📖 Reading & Light Study",
-      description: "A calmer, lighter session.",
-    },
-    {
-      value: "online-class",
-      label: "🎧 Online Class / Meeting",
-      description: "Reliable internet and the right environment.",
     },
     {
       value: "quick-study",
@@ -244,11 +247,29 @@ export function locationChoices(locale: Locale, city: City): Choice<LocationChoi
     { value: "university", label: nearUniversity },
   ];
   if (city === "riyadh")
-    choices.push({
-      value: "north-riyadh",
-      label: locale === "ar" ? "🏙️ شمال الرياض" : "🏙️ North Riyadh",
-    });
-  choices.push({ value: "area", label: locale === "ar" ? "🗺️ اختر منطقة" : "🗺️ Choose an area" });
+    choices.push(
+      {
+        value: "north-riyadh",
+        label: locale === "ar" ? "🌆 شمال الرياض" : "🌆 North Riyadh",
+      },
+      {
+        value: "east-riyadh",
+        label: locale === "ar" ? "🌇 شرق الرياض" : "🌇 East Riyadh",
+      },
+      {
+        value: "central-riyadh",
+        label: locale === "ar" ? "🌃 وسط الرياض" : "🌃 Central Riyadh",
+      },
+      {
+        value: "west-riyadh",
+        label: locale === "ar" ? "🌄 غرب الرياض" : "🌄 West Riyadh",
+      },
+      {
+        value: "south-riyadh",
+        label: locale === "ar" ? "🌴 جنوب الرياض" : "🌴 South Riyadh",
+      },
+    );
+  choices.push({ value: "area", label: locale === "ar" ? "🗺️ اختر الحي" : "🗺️ Choose an area" });
   return choices;
 }
 
@@ -272,14 +293,6 @@ export function contextualQuestion(locale: Locale, sessionType: SessionType) {
     return {
       title: locale === "ar" ? "كم عددكم؟ 👥" : "How many of you? 👥",
       options: locale === "ar" ? ["2", "3–4", "+5"] : ["2", "3–4", "5+"],
-    };
-  if (sessionType === "online-class")
-    return {
-      title: locale === "ar" ? "بتحتاج تتكلم؟ 🎙️" : "Will you need to speak? 🎙️",
-      options:
-        locale === "ar"
-          ? ["لا، سماعات وبس", "إيه، باخذ راحتي بالكلام"]
-          : ["No, headphones only", "Yes, I’ll need to talk"],
     };
   if (sessionType === "quick-study")
     return {

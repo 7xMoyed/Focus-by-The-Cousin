@@ -1,9 +1,38 @@
 import { SiteHeader } from "@/components/layout/site-header";
 import { LocalizedHero } from "@/features/home/localized-hero";
+import { PUBLIC_CONTACT_EMAIL, SITE_URL } from "@/lib/site";
 
 export default function Home() {
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "Focus by The Cousin",
+        url: SITE_URL,
+        email: PUBLIC_CONTACT_EMAIL,
+        areaServed: ["Riyadh", "Al Majma'ah"],
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        name: "Focus by The Cousin",
+        url: SITE_URL,
+        inLanguage: ["ar", "en"],
+        publisher: { "@id": `${SITE_URL}/#organization` },
+      },
+    ],
+  };
+
   return (
     <div className="relative flex min-h-screen overflow-hidden bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replaceAll("<", "\\u003c"),
+        }}
+      />
       <video
         className="absolute inset-0 z-0 h-full w-full object-cover"
         autoPlay

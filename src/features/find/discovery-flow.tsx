@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { FloatingPanel } from "@/components/experience/floating-panel";
 import {
+  createDiscoverySessionId,
+  isValidDiscoveryAnswers,
+  readStoredDiscoveryState,
+  saveDiscoverySession,
+} from "@/features/find/discovery-session";
+import {
   cityChoices,
   contextualQuestion,
   getFindCopy,
@@ -28,6 +34,7 @@ import type {
 } from "@/features/find/types";
 import { DISCOVERY_STORAGE_KEY, emptyDiscoveryAnswers } from "@/features/find/types";
 import { useLocale } from "@/features/i18n/locale-provider";
+import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type Stage = "intro" | "questions" | "matching" | "teaser" | "signup" | "success";
 type Choice = { value: string; label: string; description?: string };
@@ -39,6 +46,7 @@ export function DiscoveryFlow() {
   const [stage, setStage] = useState<Stage>("intro");
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<DiscoveryAnswers>(emptyDiscoveryAnswers);
+  const [sessionId, setSessionId] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [validation, setValidation] = useState("");
   const [locationStatus, setLocationStatus] = useState<"idle" | "requesting" | "ready" | "denied">(
@@ -51,29 +59,23 @@ export function DiscoveryFlow() {
     let restoredAnswers: DiscoveryAnswers | undefined;
     let restoredStep = 1;
     let restoredStage: Stage = "intro";
-    try {
-      const stored = window.localStorage.getItem(DISCOVERY_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as StoredDiscoveryState;
-        if (parsed.answers && Array.isArray(parsed.answers.priorities)) {
-          restoredAnswers = parsed.answers;
-          restoredStep = Math.min(6, Math.max(1, parsed.step || 1));
-          restoredStage =
-            parsed.stage === "signup"
-              ? "signup"
-              : parsed.stage === "teaser"
-                ? "teaser"
-                : parsed.stage === "questions"
-                  ? "questions"
-                  : "intro";
-        }
-      }
-    } catch {
-      window.localStorage.removeItem(DISCOVERY_STORAGE_KEY);
+    const parsed = readStoredDiscoveryState();
+    if (parsed) {
+      restoredAnswers = parsed.answers;
+      restoredStep = Math.min(6, Math.max(1, parsed.step || 1));
+      restoredStage =
+        parsed.stage === "signup"
+          ? "signup"
+          : parsed.stage === "teaser"
+            ? "teaser"
+            : parsed.stage === "questions"
+              ? "questions"
+              : "intro";
     }
 
     queueMicrotask(() => {
       if (restoredAnswers) setAnswers(restoredAnswers);
+      setSessionId(parsed?.sessionId ?? createDiscoverySessionId());
       setStep(restoredStep);
       setStage(restoredStage);
       setHydrated(true);
@@ -81,7 +83,7 @@ export function DiscoveryFlow() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || stage === "matching" || stage === "success") return;
+    if (!hydrated || !sessionId || stage === "matching" || stage === "success") return;
     const persistedStage: StoredDiscoveryState["stage"] =
       stage === "signup"
         ? "signup"
@@ -92,9 +94,36 @@ export function DiscoveryFlow() {
             : "intro";
     window.localStorage.setItem(
       DISCOVERY_STORAGE_KEY,
-      JSON.stringify({ answers, step, stage: persistedStage } satisfies StoredDiscoveryState),
+      JSON.stringify({
+        sessionId,
+        answers,
+        step,
+        stage: persistedStage,
+        locale,
+      } satisfies StoredDiscoveryState),
     );
-  }, [answers, hydrated, stage, step]);
+  }, [answers, hydrated, locale, sessionId, stage, step]);
+
+  useEffect(() => {
+    if (!hydrated || !sessionId || !isValidDiscoveryAnswers(answers)) return;
+    if (new URLSearchParams(window.location.search).get("auth") !== "confirmed") return;
+
+    const supabase = getBrowserSupabaseClient();
+    void supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session?.user) {
+        setStage("signup");
+        return;
+      }
+
+      try {
+        await saveDiscoverySession(supabase, data.session.user.id, sessionId, answers, locale);
+        setStage("success");
+        window.setTimeout(() => router.replace("/results"), 700);
+      } catch {
+        setStage("signup");
+      }
+    });
+  }, [answers, hydrated, locale, router, sessionId]);
 
   useEffect(() => {
     if (stage !== "matching") return;
@@ -169,10 +198,34 @@ export function DiscoveryFlow() {
 
   function continueFlow() {
     if (!currentStepValid()) return;
+    setValidation("");
     if (step < 6) setStep((value) => value + 1);
     else {
       setMatchingIndex(0);
       setStage("matching");
+    }
+  }
+
+  async function revealMatches() {
+    if (!sessionId || !isValidDiscoveryAnswers(answers)) {
+      setStage("questions");
+      setStep(1);
+      return;
+    }
+
+    try {
+      const supabase = getBrowserSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      if (!data.session?.user) {
+        setStage("signup");
+        return;
+      }
+
+      await saveDiscoverySession(supabase, data.session.user.id, sessionId, answers, locale);
+      setStage("success");
+      window.setTimeout(() => router.push("/results"), 700);
+    } catch {
+      setStage("signup");
     }
   }
 
@@ -254,15 +307,19 @@ export function DiscoveryFlow() {
             if (step === 3) patchAnswers({ visitTime: value as VisitTime });
             if (step === 4) {
               const priority = value as Priority;
-              setAnswers((current) => ({
-                ...current,
-                priorities: current.priorities.includes(priority)
-                  ? current.priorities.filter((item) => item !== priority)
-                  : current.priorities.length < 3
-                    ? [...current.priorities, priority]
-                    : current.priorities,
-              }));
-              setValidation("");
+              setAnswers((current) => {
+                if (!current.priorities.includes(priority) && current.priorities.length >= 3) {
+                  setValidation(copy.priorityLimit);
+                  return current;
+                }
+                setValidation("");
+                return {
+                  ...current,
+                  priorities: current.priorities.includes(priority)
+                    ? current.priorities.filter((item) => item !== priority)
+                    : [...current.priorities, priority],
+                };
+              });
             }
             if (step === 5) selectLocation(value as LocationChoice);
             if (step === 6) patchAnswers({ contextualAnswer: value });
@@ -324,7 +381,7 @@ export function DiscoveryFlow() {
           <TeaserCard locale={locale} answers={answers} teaser={teaser} />
           <button
             type="button"
-            onClick={() => setStage("signup")}
+            onClick={() => void revealMatches()}
             className="find-primary-button mt-7 w-full"
           >
             {copy.reveal}
@@ -336,6 +393,7 @@ export function DiscoveryFlow() {
         <SignUpGate
           locale={locale}
           answers={answers}
+          sessionId={sessionId}
           onBack={() => setStage("teaser")}
           onSuccess={() => {
             setStage("success");
@@ -480,6 +538,7 @@ function LocationDetails({
           onChange={(event) => onAreaChange(event.target.value)}
           className="find-input mb-6"
           placeholder={copy.areaPlaceholder}
+          maxLength={120}
         />
       ) : null}
       <h2 className="text-lg font-semibold text-slate-900">{copy.radiusTitle}</h2>
@@ -518,8 +577,8 @@ function TeaserCard({
       ? teaser.venueNameAr
       : teaser.venueNameEn
     : locale === "ar"
-      ? "مكان مختار لك"
-      : "A place picked for you";
+      ? "نتائج جلستك جاهزة"
+      : "Your session matches are ready";
   const branchName = teaser ? (locale === "ar" ? teaser.branchNameAr : teaser.branchNameEn) : "";
   return (
     <div className="relative mt-7 overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 shadow-[0_14px_40px_rgba(14,63,86,0.09)] sm:p-6">

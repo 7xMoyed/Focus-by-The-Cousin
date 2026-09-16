@@ -17,7 +17,15 @@ export type Priority =
   | "food"
   | "restrooms";
 
-export type LocationChoice = "near-me" | "university" | "north-riyadh" | "area";
+export type LocationChoice =
+  | "near-me"
+  | "university"
+  | "north-riyadh"
+  | "east-riyadh"
+  | "central-riyadh"
+  | "west-riyadh"
+  | "south-riyadh"
+  | "area";
 export type RadiusChoice = "5" | "10" | "20" | "reasonable";
 
 export type DiscoveryAnswers = {
@@ -32,9 +40,11 @@ export type DiscoveryAnswers = {
 };
 
 export type StoredDiscoveryState = {
+  sessionId?: string;
   answers: DiscoveryAnswers;
   step: number;
   stage: "intro" | "questions" | "teaser" | "signup";
+  locale?: "ar" | "en";
 };
 
 export type VenueTeaser = {

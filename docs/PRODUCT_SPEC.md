@@ -27,11 +27,12 @@ complete and where they are not.
 
 ## Core user journey
 
-1. A user chooses or confirms an area.
-2. The user browses or searches branch-level venue results.
-3. The user filters or sorts results using focus-related criteria.
-4. The user opens a branch page and reviews its suitability.
-5. The user opens a Google Maps URL for navigation.
+1. A user completes the guided session questions without authenticating first.
+2. The user sees a matching teaser and signs up or logs in.
+3. The pending discovery session is associated with the authenticated user.
+4. The user lands directly on personalized branch-level results.
+5. The user opens a branch page and reviews its suitability.
+6. The user opens a Google Maps URL for navigation.
 
 ## MVP capabilities
 
@@ -87,7 +88,7 @@ unknown rather than guessed.
 - Payments, paid plans, and subscriptions.
 - Native iOS or Android applications.
 - A complete production database or advanced PostGIS queries.
-- User-generated reviews, public accounts, and social features.
+- User-generated reviews, public social profiles, and social features.
 - Venue-owner dashboards or advertising products.
 - Broad nationwide coverage.
 

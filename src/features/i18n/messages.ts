@@ -15,7 +15,7 @@ export const messages = {
       "Focus by The Cousin helps you choose cafés, libraries, and workspaces based on what your session actually needs — not just what is nearby.",
     contactTitle: "Let’s talk.",
     contactDescription:
-      "Have a place to recommend or an idea to share? Our official contact channel will be available here soon.",
+      "Have a place to recommend or an idea to share? Send it our way and we’ll get back to you.",
     heroTitleFirst: "Where do you find your focus?",
     heroTitleSecond: "Let the place help.",
     heroDescription:
@@ -42,8 +42,7 @@ export const messages = {
     aboutDescription:
       "Focus by The Cousin يساعدك تختار المقهى أو المكتبة أو مساحة العمل حسب احتياج جلستك فعلًا — مو بس حسب أقرب مكان.",
     contactTitle: "حياك، خلّنا نتواصل.",
-    contactDescription:
-      "عندك مكان تقترحه أو فكرة تشاركنا فيها؟ قناة التواصل الرسمية بتكون هنا قريبًا.",
+    contactDescription: "عندك مكان تقترحه أو فكرة تشاركنا فيها؟ أرسلها لنا وبنرد عليك بأقرب وقت.",
     heroTitleFirst: "وين تلقى تركيزك؟",
     heroTitleSecond: "خلّ المكان يساعدك.",
     heroDescription:

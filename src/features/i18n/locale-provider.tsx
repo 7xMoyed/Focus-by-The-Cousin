@@ -20,7 +20,7 @@ function getSnapshot(): Locale {
 }
 
 function getServerSnapshot(): Locale {
-  return "en";
+  return "ar";
 }
 
 function chooseLocale(locale: Locale) {

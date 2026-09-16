@@ -23,10 +23,10 @@ Browser
           → PostGIS geographical queries (later)
 ```
 
-The foundation has a Supabase client configured with a project URL and publishable key. The
-`/api/venues` route queries published branches and returns only public fields. Privileged access is
-not used by the application. Additional writes and user-specific queries should stay in server-side
-data-access modules.
+The application has a Supabase client configured with a project URL and publishable key. The
+`/api/venues` route queries published branches and returns only public fields. Authentication uses
+Supabase Auth, while profile and discovery-session reads and writes are restricted by database RLS.
+No service-role key is exposed to the application.
 
 ## Source layout
 
@@ -44,11 +44,11 @@ creating these directories before the feature needs them.
 
 The MVP will likely need:
 
-- `/` for discovery and initial area selection.
+- `/` for the landing page and discovery entry point.
+- `/find` for the six-step discovery flow and its sign-up/login gate.
+- `/results` for authenticated session results.
 - `/venues/[slug]` for an individual branch.
 - Optional city or area routes if they improve navigation and search indexing.
-
-Only the temporary `/` route exists in this foundation.
 
 ## Data model direction
 
@@ -57,11 +57,10 @@ address, coordinates, hours, Google Maps URL, focus evaluation, nearby-universit
 time-based crowd observations. Scoring definitions should be versioned so displayed ratings remain
 explainable when the methodology changes.
 
-The connected project currently has `cities`, `venues`, `venue_branches`, `opening_hours`, `reviews`,
-and `review_scores`. All application tables have row-level security enabled. The public branch query
-uses `venues`, `cities`, and `opening_hours` relations and never requests reviewer identity. The
-tables were created outside this repository; future schema changes should be captured as SQL
-migrations after reconciling the project's existing migration history.
+The connected project currently has venue data tables plus `profiles` and `discovery_sessions`.
+Application tables have row-level security enabled. The public branch query never requests reviewer
+identity, while authenticated data policies restrict profiles and discovery sessions to their owner.
+Schema changes are captured as additive SQL migrations.
 
 ## Supabase and PostGIS
 

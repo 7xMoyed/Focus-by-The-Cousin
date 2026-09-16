@@ -12,9 +12,10 @@ King Saud University and northern Riyadh.
 This repository contains a Next.js App Router foundation, the approved responsive landing page,
 shared styling, strict TypeScript, linting and formatting, MVP documentation, and a Supabase client
 configured with a publishable key. The read-only `/api/venues` endpoint loads published branches from
-Supabase. Phase 1 also adds a bilingual UI preview and reusable floating-panel components.
-The database schema is managed in Supabase; authentication, payments, and subscriptions are not yet
-implemented in this repository.
+Supabase. The bilingual discovery flow survives refreshes, supports Supabase Auth registration and
+login, associates validated sessions with the authenticated user under RLS, and continues directly
+to protected results. The contact UI is prepared for server-only delivery through Resend. Payments
+and subscriptions are not implemented.
 
 ## Requirements
 
@@ -25,7 +26,8 @@ implemented in this repository.
 
 1. Clone the repository and enter its directory.
 2. Copy `.env.example` to `.env.local`.
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`.
+3. Set `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`.
 4. Install dependencies and start the development server:
 
 ```bash
@@ -34,9 +36,13 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in a browser.
-The floating-panel preview is at [http://localhost:3000/find](http://localhost:3000/find). The full
-discovery flow is not implemented yet.
+The discovery flow is at [http://localhost:3000/find](http://localhost:3000/find).
 Arabic UI uses the bundled Thmanyah Sans font files supplied by the project owner.
+
+Contact email delivery additionally requires `RESEND_API_KEY` and a `RESEND_FROM_EMAIL` address on a
+domain verified in Resend. Both are server-only variables. The public destination remains
+`FocusByTheCousin@gmail.com`. Optionally set `GOOGLE_SITE_VERIFICATION` to the token supplied by Google
+Search Console; do not include the surrounding HTML tag.
 
 To check live venue data locally, open `http://localhost:3000/api/venues`. It returns published
 branches from Supabase, or an empty list when none are available. Filter by city with
