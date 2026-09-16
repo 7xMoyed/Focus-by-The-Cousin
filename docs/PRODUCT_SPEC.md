@@ -27,11 +27,12 @@ complete and where they are not.
 
 ## Core user journey
 
-1. A user completes the guided session questions without authenticating first.
-2. The user sees a matching teaser and signs up or logs in.
-3. The pending discovery session is associated with the authenticated user.
-4. The user lands directly on personalized branch-level results.
-5. The user opens a branch page and reviews its suitability.
+1. A new user completes the guided preference and session questions without authenticating first.
+2. The user signs up or logs in; the pending discovery session and long-term Focus Profile are saved.
+3. The user lands directly on filtered branch-level results and onboarding is marked complete.
+4. A returning user browses normally without repeating onboarding and may open temporary session
+   filters when needed.
+5. The user can edit long-term Focus Profile preferences without overwriting temporary filters.
 6. The user opens a Google Maps URL for navigation.
 
 ## MVP capabilities
@@ -61,6 +62,11 @@ Each branch may include:
 Scores should use clear scales and explain what they mean. Unknown information must be shown as
 unknown rather than guessed.
 
+`Focus Score` is a non-personalized branch-quality score calculated from aggregate approved review
+dimensions. A personalized `Match %` is calculated only while a discovery session or temporary
+filters are active. Venues below the minimum review threshold show a clear “more reviews needed”
+state instead of a fabricated or unstable score.
+
 ### Venue details
 
 - Branch name, venue brand, area, and address.
@@ -87,7 +93,7 @@ unknown rather than guessed.
 
 - Payments, paid plans, and subscriptions.
 - Native iOS or Android applications.
-- A complete production database or advanced PostGIS queries.
+- A complete venue dataset or advanced PostGIS queries.
 - User-generated reviews, public social profiles, and social features.
 - Venue-owner dashboards or advertising products.
 - Broad nationwide coverage.
@@ -101,7 +107,7 @@ unknown rather than guessed.
 
 ## Open product decisions
 
-- The scoring scale and weighting for each focus criterion.
+- Calibration of scoring weights after enough real review data exists.
 - The editorial verification process and refresh frequency.
 - The exact Riyadh launch boundary.
 - Which filters appear in the first release versus later iterations.

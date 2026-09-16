@@ -33,7 +33,8 @@ No service-role key is exposed to the application.
 - `src/app`: layouts, pages, loading and error boundaries, and route handlers.
 - `src/components`: reusable UI and layout components with no domain data access.
 - `src/features`: domain modules such as venue discovery and branch details.
-- `src/lib`: configuration, formatting helpers, and external-service adapters.
+- `src/lib`: configuration, deterministic recommendation logic, formatting helpers, and
+  external-service adapters.
 - `src/types`: types shared across multiple features or application boundaries.
 - `src/styles`: shared design tokens and non-route-specific global styling.
 
@@ -61,6 +62,20 @@ The connected project currently has venue data tables plus `profiles` and `disco
 Application tables have row-level security enabled. The public branch query never requests reviewer
 identity, while authenticated data policies restrict profiles and discovery sessions to their owner.
 Schema changes are captured as additive SQL migrations.
+
+Long-term Focus Profile preferences and `onboarding_completed_at` live on the existing `profiles`
+row. Temporary discovery answers remain in `discovery_sessions`; applying filters never silently
+overwrites the Focus Profile.
+
+## Recommendation logic
+
+- `src/lib/recommendations/focus-score.ts` calculates non-personalized branch quality from approved
+  aggregate review dimensions and enforces a minimum-data threshold.
+- `src/lib/recommendations/matching.ts` calculates personalized compatibility only when filters are
+  active. It uses deterministic session and priority weights and never calls an AI model.
+- `src/lib/recommendations/venue-ranking.ts` sorts filtered results by Match %, while default
+  browsing uses confidence-adjusted Focus Score without labeling it as a match.
+- Match explanations are assembled only from structured dimensions that meet the quality threshold.
 
 ## Supabase and PostGIS
 
@@ -112,7 +127,6 @@ before testable behavior exists.
 ## Deferred decisions
 
 - Reconcile the externally created database schema with versioned migrations and review all grants.
-- Authentication and user accounts.
 - A places or opening-hours data provider.
 - Analytics, monitoring, and deployment platform.
 - Caching and revalidation rules for production data.

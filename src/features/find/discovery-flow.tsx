@@ -21,6 +21,7 @@ import {
   timeChoices,
 } from "@/features/find/find-copy";
 import { SignUpGate } from "@/features/find/sign-up-gate";
+import { completeFocusOnboarding, loadFocusProfile } from "@/features/preferences/focus-profile";
 import type {
   City,
   DiscoveryAnswers,
@@ -29,7 +30,6 @@ import type {
   RadiusChoice,
   SessionType,
   StoredDiscoveryState,
-  VenueTeaser,
   VisitTime,
 } from "@/features/find/types";
 import { DISCOVERY_STORAGE_KEY, emptyDiscoveryAnswers } from "@/features/find/types";
@@ -53,13 +53,19 @@ export function DiscoveryFlow() {
     "idle",
   );
   const [matchingIndex, setMatchingIndex] = useState(0);
-  const [teaser, setTeaser] = useState<VenueTeaser | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     let restoredAnswers: DiscoveryAnswers | undefined;
     let restoredStep = 1;
     let restoredStage: Stage = "intro";
-    const parsed = readStoredDiscoveryState();
+    const params = new URLSearchParams(window.location.search);
+    const authMode = params.get("auth");
+    const explicitMode = params.get("mode");
+    const parsed = explicitMode === "session" ? null : readStoredDiscoveryState();
+    if (explicitMode === "session") {
+      window.localStorage.removeItem(DISCOVERY_STORAGE_KEY);
+    }
     if (parsed) {
       restoredAnswers = parsed.answers;
       restoredStep = Math.min(6, Math.max(1, parsed.step || 1));
@@ -73,14 +79,35 @@ export function DiscoveryFlow() {
               : "intro";
     }
 
-    queueMicrotask(() => {
+    const finishHydration = async () => {
+      const supabase = getBrowserSupabaseClient();
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user && authMode !== "confirmed" && explicitMode !== "session") {
+          const profile = await loadFocusProfile(supabase, data.session.user.id);
+          if (profile?.onboardingCompletedAt) {
+            router.replace("/results");
+            return;
+          }
+        }
+      } catch {
+        // If the profile check is temporarily unavailable, keep the flow usable.
+      }
+
+      if (cancelled) return;
       if (restoredAnswers) setAnswers(restoredAnswers);
       setSessionId(parsed?.sessionId ?? createDiscoverySessionId());
       setStep(restoredStep);
       setStage(restoredStage);
       setHydrated(true);
-    });
-  }, []);
+    };
+
+    void finishHydration();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!hydrated || !sessionId || stage === "matching" || stage === "success") return;
@@ -105,6 +132,10 @@ export function DiscoveryFlow() {
   }, [answers, hydrated, locale, sessionId, stage, step]);
 
   useEffect(() => {
+    queueMicrotask(() => setValidation(""));
+  }, [locale]);
+
+  useEffect(() => {
     if (!hydrated || !sessionId || !isValidDiscoveryAnswers(answers)) return;
     if (new URLSearchParams(window.location.search).get("auth") !== "confirmed") return;
 
@@ -117,8 +148,9 @@ export function DiscoveryFlow() {
 
       try {
         await saveDiscoverySession(supabase, data.session.user.id, sessionId, answers, locale);
+        await completeFocusOnboarding(supabase, data.session.user.id, answers, locale);
         setStage("success");
-        window.setTimeout(() => router.replace("/results"), 700);
+        window.setTimeout(() => router.replace(`/results?session=${sessionId}`), 700);
       } catch {
         setStage("signup");
       }
@@ -137,35 +169,6 @@ export function DiscoveryFlow() {
       window.clearTimeout(timeout);
     };
   }, [copy.matchingSteps.length, stage]);
-
-  useEffect(() => {
-    if (!answers.city || (stage !== "matching" && stage !== "teaser")) return;
-    const controller = new AbortController();
-    void fetch(`/api/venues?city=${answers.city}`, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : Promise.reject()))
-      .then((payload: { branches?: Array<Record<string, unknown>> }) => {
-        const branch = payload.branches?.[0];
-        if (!branch) return;
-        const venue = Array.isArray(branch.venues) ? branch.venues[0] : branch.venues;
-        setTeaser({
-          branchId: String(branch.id),
-          venueNameAr: String(
-            (venue as Record<string, unknown> | undefined)?.name_ar ??
-              branch.name_ar ??
-              "مكان مناسب",
-          ),
-          venueNameEn: String(
-            (venue as Record<string, unknown> | undefined)?.name_en ??
-              branch.name_en ??
-              "A fitting place",
-          ),
-          branchNameAr: String(branch.name_ar ?? ""),
-          branchNameEn: String(branch.name_en ?? ""),
-        });
-      })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, [answers.city, stage]);
 
   function patchAnswers(patch: Partial<DiscoveryAnswers>) {
     setAnswers((current) => ({ ...current, ...patch }));
@@ -222,8 +225,9 @@ export function DiscoveryFlow() {
       }
 
       await saveDiscoverySession(supabase, data.session.user.id, sessionId, answers, locale);
+      await completeFocusOnboarding(supabase, data.session.user.id, answers, locale);
       setStage("success");
-      window.setTimeout(() => router.push("/results"), 700);
+      window.setTimeout(() => router.push(`/results?session=${sessionId}`), 700);
     } catch {
       setStage("signup");
     }
@@ -378,7 +382,7 @@ export function DiscoveryFlow() {
           <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-base">
             {copy.teaserDescription}
           </p>
-          <TeaserCard locale={locale} answers={answers} teaser={teaser} />
+          <TeaserCard locale={locale} answers={answers} />
           <button
             type="button"
             onClick={() => void revealMatches()}
@@ -397,7 +401,7 @@ export function DiscoveryFlow() {
           onBack={() => setStage("teaser")}
           onSuccess={() => {
             setStage("success");
-            window.setTimeout(() => router.push("/results"), 900);
+            window.setTimeout(() => router.push(`/results?session=${sessionId}`), 900);
           }}
         />
       ) : null}
@@ -559,27 +563,13 @@ function LocationDetails({
   );
 }
 
-function TeaserCard({
-  locale,
-  answers,
-  teaser,
-}: {
-  locale: "ar" | "en";
-  answers: DiscoveryAnswers;
-  teaser: VenueTeaser | null;
-}) {
+function TeaserCard({ locale, answers }: { locale: "ar" | "en"; answers: DiscoveryAnswers }) {
   const copy = getFindCopy(locale);
   const labels = priorityChoices[locale].filter((choice) =>
     answers.priorities.includes(choice.value),
   );
-  const venueName = teaser
-    ? locale === "ar"
-      ? teaser.venueNameAr
-      : teaser.venueNameEn
-    : locale === "ar"
-      ? "نتائج جلستك جاهزة"
-      : "Your session matches are ready";
-  const branchName = teaser ? (locale === "ar" ? teaser.branchNameAr : teaser.branchNameEn) : "";
+  const venueName =
+    locale === "ar" ? "بنرتب المتاح حسب اختياراتك" : "We’ll rank what’s available for you";
   return (
     <div className="relative mt-7 overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 shadow-[0_14px_40px_rgba(14,63,86,0.09)] sm:p-6">
       <div
@@ -588,7 +578,6 @@ function TeaserCard({
       />
       <p className="relative text-sm font-semibold text-sky-800">🎯 {copy.teaserMatch}</p>
       <h2 className="relative mt-3 text-xl font-semibold text-slate-950">{venueName}</h2>
-      {branchName ? <p className="relative mt-1 text-sm text-slate-500">{branchName}</p> : null}
       <div className="relative mt-4 flex flex-wrap gap-2">
         {labels.map((item) => (
           <span

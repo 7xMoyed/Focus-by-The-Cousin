@@ -39,6 +39,19 @@ export type DiscoveryAnswers = {
   contextualAnswer?: string;
 };
 
+export type FocusProfile = {
+  preferredPriorities: Priority[];
+  preferredCity?: City;
+  preferredSessionType?: SessionType;
+  preferredLanguage: "ar" | "en";
+  onboardingCompletedAt?: string;
+};
+
+export type SessionFilters = Pick<
+  DiscoveryAnswers,
+  "city" | "sessionType" | "priorities" | "locationChoice" | "radius" | "manualArea"
+>;
+
 export type StoredDiscoveryState = {
   sessionId?: string;
   answers: DiscoveryAnswers;

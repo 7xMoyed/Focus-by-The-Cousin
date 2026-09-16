@@ -6,6 +6,7 @@ import { saveDiscoverySession } from "@/features/find/discovery-session";
 import { getFindCopy } from "@/features/find/find-copy";
 import type { DiscoveryAnswers } from "@/features/find/types";
 import type { Locale } from "@/features/i18n/locale-provider";
+import { completeFocusOnboarding } from "@/features/preferences/focus-profile";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type Availability = "idle" | "checking" | "available" | "taken" | "error";
@@ -88,6 +89,7 @@ export function SignUpGate({
   async function finishAuthentication(userId: string) {
     try {
       await saveDiscoverySession(getBrowserSupabaseClient(), userId, sessionId, answers, locale);
+      await completeFocusOnboarding(getBrowserSupabaseClient(), userId, answers, locale);
       onSuccess();
     } catch {
       setError(copy.sessionSaveError);
