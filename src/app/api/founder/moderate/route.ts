@@ -67,9 +67,6 @@ async function publishToVenueBranches(supabase: AnyClient, candidateId: string) 
 
   // Upsert branch (by slug)
   const branchSlug = toSlug(`${c.name_en || c.name_ar}-${c.city_code}`);
-  const locationSql = c.latitude && c.longitude
-    ? `ST_MakePoint(${c.longitude}, ${c.latitude})::geography`
-    : null;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const branchData: any = {
@@ -79,12 +76,11 @@ async function publishToVenueBranches(supabase: AnyClient, candidateId: string) 
     name_en: c.branch_name_en || c.name_en,
     slug: branchSlug,
     address_ar: c.address_ar,
-    address_en: c.address_en,
     google_maps_url: c.google_maps_url,
     is_published: true,
   };
 
-  // Insert branch (can't use upsert with ST_MakePoint easily — use raw query for location)
+  // Insert or update branch
   const { data: existing } = await supabase
     .from("venue_branches")
     .select("id")
@@ -92,23 +88,16 @@ async function publishToVenueBranches(supabase: AnyClient, candidateId: string) 
     .single();
 
   if (existing) {
-    // Update existing
-    await supabase.from("venue_branches").update({ ...branchData, updated_at: new Date().toISOString() }).eq("slug", branchSlug);
+    const { error: updateErr } = await supabase
+      .from("venue_branches")
+      .update({ ...branchData, updated_at: new Date().toISOString() })
+      .eq("slug", branchSlug);
+    if (updateErr) throw new Error(`Branch update failed: ${updateErr.message}`);
   } else {
-    // Insert new — set location via raw SQL if coordinates exist
-    if (locationSql) {
-      const { error: rawErr } = await supabase.rpc("exec_sql" as never, {
-        sql: `INSERT INTO venue_branches (venue_id, city_id, name_ar, name_en, slug, address_ar, google_maps_url, location, is_published)
-              VALUES ('${venue.id}', '${city.id}', '${(c.branch_name_ar || c.name_ar).replace(/'/g, "''")}', '${(c.branch_name_en || c.name_en).replace(/'/g, "''")}', '${branchSlug}', '${(c.address_ar || "").replace(/'/g, "''")}', ${c.google_maps_url ? `'${c.google_maps_url}'` : "NULL"}, ${locationSql}, true)
-              ON CONFLICT (slug) DO UPDATE SET is_published = true, updated_at = now();`
-      });
-      // If RPC not available, fall back to insert without location
-      if (rawErr) {
-        await supabase.from("venue_branches").insert(branchData);
-      }
-    } else {
-      await supabase.from("venue_branches").insert(branchData);
-    }
+    const { error: insertErr } = await supabase
+      .from("venue_branches")
+      .insert(branchData);
+    if (insertErr) throw new Error(`Branch insert failed: ${insertErr.message}`);
   }
 }
 
