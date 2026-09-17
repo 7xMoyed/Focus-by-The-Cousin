@@ -24,7 +24,7 @@ function LoginForm() {
 
     if (res.ok) {
       const next = params.get("next") ?? "/founder";
-      router.push(next);
+      window.location.href = next;
     } else {
       const data = await res.json();
       setError(data.error ?? "خطأ غير متوقع");
