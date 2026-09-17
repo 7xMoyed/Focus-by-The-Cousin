@@ -11,10 +11,22 @@ import type {
   EvidenceLevel,
   VenueCandidate,
 } from "@/features/venue-research/types";
-import { getBrowserSupabaseClient } from "@/lib/supabase/client";
-import { loadFounderCandidates, moderateFounderCandidate } from "@/lib/supabase/founder-venues";
 
-type AccessState = "checking" | "signed_out" | "denied" | "ready" | "error";
+async function apiModerate(
+  candidateId: string,
+  decision: Extract<CandidateStatus, "approved" | "rejected" | "needs_review">,
+  reason?: string,
+  note?: string,
+) {
+  const res = await fetch("/api/founder/moderate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidateId, decision, reason, note }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+}
+
+type AccessState = "checking" | "ready" | "error";
 type CityFilter = "all" | "riyadh" | "majmaah";
 type StatusFilter = "all" | CandidateStatus;
 
@@ -33,52 +45,17 @@ export function FounderDashboard() {
   const [candidates, setCandidates] = useState<VenueCandidate[]>([]);
   const [cityFilter, setCityFilter] = useState<CityFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [loadingMessage, setLoadingMessage] = useState<string>(copy.checkingAccess);
+  const [loadError, setLoadError] = useState("");
 
   const refresh = useCallback(async () => {
-    const supabase = getBrowserSupabaseClient();
     setAccess("checking");
-    setLoadingMessage(copy.checkingAccess);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      setAccess("signed_out");
-      return;
-    }
-
-    const { data: verified, error: userError } = await supabase.auth.getUser();
-    if (userError || !verified.user) {
-      await supabase.auth.signOut();
-      setAccess("signed_out");
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", verified.user.id)
-      .maybeSingle<{ role: string }>();
-
-    if (profileError) {
-      setAuthError(copy.setupNeeded);
-      setAccess("error");
-      return;
-    }
-
-    if (!profile || !["founder", "admin"].includes(profile.role)) {
-      setAccess("denied");
-      return;
-    }
-
     try {
-      setLoadingMessage(copy.loadingQueue);
-      setCandidates(await loadFounderCandidates(supabase));
+      const res = await fetch("/api/founder/candidates");
+      if (!res.ok) throw new Error(await res.text());
+      setCandidates(await res.json());
       setAccess("ready");
-    } catch {
-      setAuthError(copy.loadError);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : copy.loadError);
       setAccess("error");
     }
   }, [copy]);
@@ -98,87 +75,12 @@ export function FounderDashboard() {
     [candidates, cityFilter, statusFilter],
   );
 
-  async function signIn(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAuthError("");
-    const { error } = await getBrowserSupabaseClient().auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(copy.signInError);
-      return;
-    }
-    setPassword("");
-    await refresh();
-  }
-
   if (access === "checking") {
-    return <FounderState title={loadingMessage} detail={copy.serverVerified} icon="🔐" />;
-  }
-
-  if (access === "signed_out") {
-    return (
-      <section className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white/95 p-7 text-slate-950 shadow-[0_24px_90px_rgba(0,15,30,0.3)] sm:p-10">
-        <p className="text-xs font-semibold tracking-[0.2em] text-sky-800 uppercase">
-          {copy.founderMode}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold">{copy.signInTitle}</h1>
-        <p className="mt-3 text-sm leading-7 text-slate-600">{copy.signInDetail}</p>
-        <form className="mt-7 space-y-4" onSubmit={signIn}>
-          <label className="block text-sm font-semibold text-slate-700">
-            {copy.email}
-            <input
-              className="find-input mt-2"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700">
-            {copy.password}
-            <input
-              className="find-input mt-2"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
-          {authError ? (
-            <p className="rounded-2xl bg-rose-50 p-3 text-sm text-rose-800">{authError}</p>
-          ) : null}
-          <Button type="submit" className="find-primary-button w-full">
-            {copy.signIn}
-          </Button>
-        </form>
-      </section>
-    );
-  }
-
-  if (access === "denied") {
-    return (
-      <FounderState
-        title={copy.deniedTitle}
-        detail={copy.deniedDetail}
-        icon="🛡️"
-        action={
-          <Button
-            className="find-back-button mt-5"
-            onClick={async () => {
-              await getBrowserSupabaseClient().auth.signOut();
-              setAccess("signed_out");
-            }}
-          >
-            {copy.signOut}
-          </Button>
-        }
-      />
-    );
+    return <FounderState title={copy.loadingQueue} detail="" icon="🔐" />;
   }
 
   if (access === "error") {
-    return <FounderState title={copy.errorTitle} detail={authError || copy.loadError} icon="⚠️" />;
+    return <FounderState title={copy.errorTitle} detail={loadError || copy.loadError} icon="⚠️" />;
   }
 
   const counts = Object.fromEntries(
@@ -280,13 +182,7 @@ function CandidateCard({
     setActing(true);
     setActionError("");
     try {
-      await moderateFounderCandidate(
-        getBrowserSupabaseClient(),
-        candidate.id,
-        decision,
-        reason,
-        note,
-      );
+      await apiModerate(candidate.id, decision, reason, note);
       await onUpdated();
     } catch {
       setActionError(copy.actionError);
