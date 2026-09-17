@@ -168,8 +168,18 @@ function CandidateCard({
   const [note, setNote] = useState("");
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [editFields, setEditFields] = useState({
+    focus_eligibility: candidate.focus_eligibility,
+    confidence: candidate.confidence as string,
+    why_it_may_fit: candidate.why_it_may_fit,
+    possible_concerns: candidate.possible_concerns,
+  });
+
   const calculatedScore = calculateFocusEligibility(candidate.venue_candidate_evidence);
-  const band = eligibilityBand(candidate.focus_eligibility);
+  const band = eligibilityBand(editing ? editFields.focus_eligibility : candidate.focus_eligibility);
   const name = locale === "ar" ? candidate.name_ar : candidate.name_en;
   const branch = locale === "ar" ? candidate.branch_name_ar : candidate.branch_name_en;
   const address = locale === "ar" ? candidate.address_ar : candidate.address_en;
@@ -188,6 +198,25 @@ function CandidateCard({
       setActionError(copy.actionError);
     } finally {
       setActing(false);
+    }
+  }
+
+  async function saveEdits() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/founder/update-candidate", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId: candidate.id, updates: editFields }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setEditing(false);
+      await onUpdated();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "خطأ في الحفظ");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -221,51 +250,110 @@ function CandidateCard({
         </div>
 
         <div className="rounded-[1.5rem] bg-slate-950 p-5 text-white">
-          <p className="text-xs font-semibold tracking-[0.16em] text-sky-200 uppercase">
-            {copy.internalOnly}
-          </p>
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-4xl font-semibold">
-                {candidate.focus_eligibility}
-                <span className="text-lg text-white/55"> / 100</span>
-              </p>
-              <p className="mt-2 text-sm text-white/70">{copy.band[band]}</p>
-            </div>
-            <div className="text-end">
-              <p className="text-xs text-white/50">{copy.confidence}</p>
-              <p className="mt-1 font-semibold">{copy.confidenceValue[candidate.confidence]}</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-[0.16em] text-sky-200 uppercase">
+              {copy.internalOnly}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setEditing(!editing); setSaveError(""); }}
+              className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/20 transition"
+            >
+              {editing ? "إلغاء" : "✏️ تعديل"}
+            </button>
           </div>
-          {calculatedScore !== candidate.focus_eligibility ? (
+
+          {editing ? (
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs text-white/60">Focus Score (0-100)</label>
+                <input
+                  type="number" min={0} max={100}
+                  value={editFields.focus_eligibility}
+                  onChange={(e) => setEditFields(f => ({ ...f, focus_eligibility: Number(e.target.value) }))}
+                  className="mt-1 w-full rounded-xl bg-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-white/60">Confidence</label>
+                <select
+                  value={editFields.confidence}
+                  onChange={(e) => setEditFields(f => ({ ...f, confidence: e.target.value }))}
+                  className="mt-1 w-full rounded-xl bg-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                >
+                  <option value="high">عالية</option>
+                  <option value="medium">متوسطة</option>
+                  <option value="low">منخفضة</option>
+                </select>
+              </div>
+              {saveError && <p className="text-xs text-red-300">{saveError}</p>}
+              <button
+                type="button"
+                onClick={saveEdits}
+                disabled={saving}
+                className="w-full rounded-xl bg-sky-500 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-50 transition"
+              >
+                {saving ? "..." : "حفظ"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-4xl font-semibold">
+                  {candidate.focus_eligibility}
+                  <span className="text-lg text-white/55"> / 100</span>
+                </p>
+                <p className="mt-2 text-sm text-white/70">{copy.band[band]}</p>
+              </div>
+              <div className="text-end">
+                <p className="text-xs text-white/50">{copy.confidence}</p>
+                <p className="mt-1 font-semibold">{copy.confidenceValue[candidate.confidence]}</p>
+              </div>
+            </div>
+          )}
+
+          {!editing && calculatedScore !== candidate.focus_eligibility ? (
             <p className="mt-4 rounded-xl bg-amber-400/15 p-3 text-xs text-amber-100">
               {copy.scoreMismatch}
             </p>
           ) : null}
-          <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 text-center text-xs text-white/65">
-            <span>
-              🔗 {candidate.venue_candidate_sources.length}
-              <br />
-              {copy.sources}
-            </span>
-            <span>
-              📸 {candidate.venue_candidate_images.length}
-              <br />
-              {copy.visualSets}
-            </span>
-            <span>
-              🧾 {candidate.venue_candidate_evidence.length}
-              <br />
-              {copy.signals}
-            </span>
-          </div>
+          {!editing && (
+            <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 text-center text-xs text-white/65">
+              <span>🔗 {candidate.venue_candidate_sources.length}<br />{copy.sources}</span>
+              <span>📸 {candidate.venue_candidate_images.length}<br />{copy.visualSets}</span>
+              <span>🧾 {candidate.venue_candidate_evidence.length}<br />{copy.signals}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-5 sm:p-7 lg:grid-cols-2">
-        <Insight title={copy.whyFit} icon="✨" text={candidate.why_it_may_fit} tone="emerald" />
-        <Insight title={copy.concerns} icon="⚠️" text={candidate.possible_concerns} tone="amber" />
-      </div>
+      {editing ? (
+        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-5 sm:p-7 lg:grid-cols-2">
+          <div>
+            <label className="text-xs font-semibold text-emerald-700">✨ {copy.whyFit}</label>
+            <textarea
+              rows={4}
+              value={editFields.why_it_may_fit}
+              onChange={(e) => setEditFields(f => ({ ...f, why_it_may_fit: e.target.value }))}
+              className="mt-2 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm leading-7 text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-amber-700">⚠️ {copy.concerns}</label>
+            <textarea
+              rows={4}
+              value={editFields.possible_concerns}
+              onChange={(e) => setEditFields(f => ({ ...f, possible_concerns: e.target.value }))}
+              className="mt-2 w-full rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-7 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-5 sm:p-7 lg:grid-cols-2">
+          <Insight title={copy.whyFit} icon="✨" text={candidate.why_it_may_fit} tone="emerald" />
+          <Insight title={copy.concerns} icon="⚠️" text={candidate.possible_concerns} tone="amber" />
+        </div>
+      )}
 
       <div className="space-y-3 border-t border-slate-100 p-5 sm:p-7">
         <Disclosure title={copy.focusResearch} count={candidate.venue_candidate_evidence.length}>
