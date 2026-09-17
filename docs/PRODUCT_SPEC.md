@@ -98,6 +98,18 @@ state instead of a fabricated or unstable score.
 - Venue-owner dashboards or advertising products.
 - Broad nationwide coverage.
 
+## Founder venue review prototype
+
+The first founder workflow is intentionally limited to two Riyadh candidates: Wee in An Nakheel and
+Tura Cafe in Al Mahdiyah. Candidate research is private and begins in `pending`; it records concise
+source summaries, external image references, Focus-specific evidence levels, an internal Focus
+Eligibility score, separate confidence, duplicate notes, and potential risks.
+
+Focus Eligibility is an internal moderation aid, not the public Focus Score or personalized Match %.
+Unknown evidence remains unknown and awards no implied quality. A founder may approve, reject, or
+request more review, but approval never publishes a branch automatically. Mass venue research,
+outreach, neighborhood expansion, and the full operations dashboard remain deferred.
+
 ## MVP success signals
 
 - Users can quickly identify at least one suitable location in a supported area.

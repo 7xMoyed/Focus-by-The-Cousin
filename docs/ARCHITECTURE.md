@@ -88,6 +88,24 @@ generated database types checked into the repository after the schema is stabili
 Public environment values may use the `NEXT_PUBLIC_` prefix. Service-role keys and other privileged
 credentials must never be exposed to client bundles or committed to the repository.
 
+### Founder venue review
+
+`/founder` is a private operational surface that reuses Supabase Auth and the existing Focus visual
+system. The browser verifies the current auth session with Supabase, while database RLS remains the
+authority for every candidate, evidence, source, image-reference, and moderation read. A user is a
+founder only when the existing `profiles` row has `role = 'founder'` or `role = 'admin'`; users cannot
+write that protected column through normal profile grants.
+
+Research is staged separately from public venue data in additive `venue_candidate_*` tables. An
+approval marks a candidate ready for a later publication step but does not insert into
+`venue_branches`, so no research record can become public automatically. Moderation runs through a
+security-definer RPC that rechecks the authenticated founder identity and appends a compact activity
+record. Rejected candidates keep their evidence and provenance.
+
+External venue imagery is not copied into Focus storage during research. The dashboard keeps the
+source URL, inspection summary, and available attribution, then sends founders back to the provider
+for the original image. This prevents unattributed re-hosting and keeps uncertainty explicit.
+
 ## Localization
 
 - The root document defaults to Arabic and `dir="rtl"`.
