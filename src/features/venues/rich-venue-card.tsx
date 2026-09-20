@@ -61,6 +61,7 @@ export function RichVenueCard({
     branch.slug === "wee-riyadh"
       ? "WEE"
       : (locale === "ar" ? venue?.name_ar : venue?.name_en) || venue?.name_en || "";
+  const verifiedArabicName = branch.slug === "wee-riyadh" && locale === "ar" ? "ووي" : null;
   const location = [
     locale === "ar" ? branch.name_ar : branch.name_en,
     locale === "ar" ? city?.name_ar : city?.name_en,
@@ -96,6 +97,7 @@ export function RichVenueCard({
           view: "عرض المكان",
           save: saved ? "♥ محفوظ" : "♡ حفظ",
           directions: "الاتجاهات ↗",
+          sourcePhotos: "شوف صور المكان على Corner ↗",
           match: "بناءً على جلستك",
         }
       : {
@@ -107,6 +109,7 @@ export function RichVenueCard({
           view: "View place",
           save: saved ? "♥ Saved" : "♡ Save",
           directions: "Directions ↗",
+          sourcePhotos: "See place photos on Corner ↗",
           match: "Based on your session",
         };
 
@@ -159,6 +162,11 @@ export function RichVenueCard({
                 dir={name === "WEE" ? "ltr" : undefined}
               >
                 {name}
+                {verifiedArabicName ? (
+                  <span className="ms-2 text-base font-medium text-slate-500">
+                    {verifiedArabicName}
+                  </span>
+                ) : null}
               </h1>
             ) : (
               <Link
@@ -167,6 +175,11 @@ export function RichVenueCard({
                 dir={name === "WEE" ? "ltr" : undefined}
               >
                 {name}
+                {verifiedArabicName ? (
+                  <span className="ms-2 text-base font-medium text-slate-500">
+                    {verifiedArabicName}
+                  </span>
+                ) : null}
               </Link>
             )}
             <p className="mt-1 text-sm font-medium text-slate-500">{location}</p>
@@ -210,6 +223,16 @@ export function RichVenueCard({
           <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
             {summary || copy.reviewing}
           </p>
+          {branch.slug === "wee-riyadh" && photos.length === 0 ? (
+            <a
+              href="https://www.corner.inc/place/pUAnAnNEt5Xt"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-xs font-medium text-sky-800 underline underline-offset-2"
+            >
+              {copy.sourcePhotos}
+            </a>
+          ) : null}
         </div>
         {detailed && branch.address_ar ? (
           <p className="text-sm text-slate-500">📍 {branch.address_ar}</p>
