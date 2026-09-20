@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import type { PlacePhoto } from "./place-photo";
+import type { PlacePhoto, VenuePhoto } from "./place-photo";
 
 export function usePlaceGallery(source: { branch?: string; candidate?: string; token?: string }) {
   const [photos, setPhotos] = useState<PlacePhoto[]>([]);
@@ -43,7 +43,7 @@ export function PlaceGallery({
   detailHref,
   expanded = false,
 }: {
-  photos: PlacePhoto[];
+  photos: VenuePhoto[];
   locale: "ar" | "en";
   name: string;
   detailHref?: string;
@@ -56,12 +56,14 @@ export function PlaceGallery({
   const currentPhoto = photos[index] ?? photos[0];
   const photo =
     currentPhoto && !failedPositions.includes(currentPhoto.position) ? currentPhoto : null;
+  const googlePhoto = photo && "googleMapsUri" in photo ? photo : null;
   const copy =
     locale === "ar"
       ? {
           fallback: "صور المكان بانتظار مراجعة المؤسسين",
           open: "عرض الصورة",
           source: "الصورة الأصلية على Google Maps",
+          provided: "صورة مقدمة إلى Focus",
           close: "إغلاق",
           previous: "السابق",
           next: "التالي",
@@ -70,6 +72,7 @@ export function PlaceGallery({
           fallback: "Place photos are awaiting founder review",
           open: "Open photo",
           source: "Original photo on Google Maps",
+          provided: "Photo provided to Focus",
           close: "Close",
           previous: "Previous",
           next: "Next",
@@ -127,7 +130,9 @@ export function PlaceGallery({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={photo.uri}
-      alt={`${name} — ${index + 1}`}
+      alt={
+        "source" in photo ? (locale === "ar" ? photo.altAr : photo.altEn) : `${name} — ${index + 1}`
+      }
       className="h-full w-full object-cover"
       loading={index === 0 ? "eager" : "lazy"}
       onError={() => setFailedPositions((current) => [...current, photo.position])}
@@ -190,17 +195,26 @@ export function PlaceGallery({
           </div>
         ) : null}
         <div className="absolute inset-x-0 bottom-0 flex min-h-9 items-center justify-between gap-2 bg-white/95 px-4 py-2 text-xs text-[#5e5e5e]">
-          <span translate="no" className="shrink-0 whitespace-nowrap font-sans text-xs font-normal">
-            Google Maps
-          </span>
-          <a
-            href={photo.googleMapsUri}
-            target="_blank"
-            rel="noreferrer"
-            className="truncate underline underline-offset-2"
-          >
-            {copy.source} ↗
-          </a>
+          {googlePhoto ? (
+            <>
+              <span
+                translate="no"
+                className="shrink-0 whitespace-nowrap font-sans text-xs font-normal"
+              >
+                Google Maps
+              </span>
+              <a
+                href={googlePhoto.googleMapsUri}
+                target="_blank"
+                rel="noreferrer"
+                className="truncate underline underline-offset-2"
+              >
+                {copy.source} ↗
+              </a>
+            </>
+          ) : (
+            <span>{copy.provided}</span>
+          )}
         </div>
       </div>
       {expanded && !detailHref ? (
@@ -233,25 +247,37 @@ export function PlaceGallery({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photo.uri}
-              alt={`${name} — ${index + 1}`}
+              alt={
+                "source" in photo
+                  ? locale === "ar"
+                    ? photo.altAr
+                    : photo.altEn
+                  : `${name} — ${index + 1}`
+              }
               className="max-h-[65vh] w-full object-contain bg-slate-900"
             />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
-              <span translate="no" className="font-sans text-xs text-[#5e5e5e]">
-                Google Maps
-              </span>
-              <a
-                href={photo.googleMapsUri}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-sky-800 underline"
-              >
-                {copy.source} ↗
-              </a>
+              {googlePhoto ? (
+                <>
+                  <span translate="no" className="font-sans text-xs text-[#5e5e5e]">
+                    Google Maps
+                  </span>
+                  <a
+                    href={googlePhoto.googleMapsUri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-sky-800 underline"
+                  >
+                    {copy.source} ↗
+                  </a>
+                </>
+              ) : (
+                <span>{copy.provided}</span>
+              )}
             </div>
-            {photo.authorAttributions.length ? (
+            {googlePhoto?.authorAttributions.length ? (
               <div className="flex flex-wrap gap-4 border-t border-slate-200 p-4">
-                {photo.authorAttributions.map((author, authorIndex) => (
+                {googlePhoto.authorAttributions.map((author, authorIndex) => (
                   <div
                     key={`${author.displayName}-${authorIndex}`}
                     className="flex items-center gap-2 text-sm"

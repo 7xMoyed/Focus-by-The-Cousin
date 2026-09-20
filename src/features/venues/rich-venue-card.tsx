@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
 import { calculateFocusScore } from "@/lib/recommendations/focus-score";
 import { calculateMatch } from "@/lib/recommendations/matching";
-import type { PublicVenueEnrichment } from "./place-photo";
+import { weeProvidedPhotos, type PublicVenueEnrichment } from "./place-photo";
 import { PlaceGallery, usePlaceGallery } from "./place-gallery";
 
 export type DisplayBranch = {
@@ -70,6 +70,7 @@ export function RichVenueCard({
     .join(" · ");
   const detailHref = `/places/${encodeURIComponent(branch.slug)}`;
   const { photos } = usePlaceGallery({ branch: branch.id });
+  const displayPhotos = branch.slug === "wee-riyadh" ? weeProvidedPhotos : photos;
   const [saved, setSaved] = useState(false);
   const focusScore = branch.evidence
     ? calculateFocusScore(branch.evidence)
@@ -147,7 +148,7 @@ export function RichVenueCard({
   return (
     <article className="overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white text-slate-950 shadow-[0_18px_45px_rgba(10,48,67,0.12)]">
       <PlaceGallery
-        photos={photos}
+        photos={displayPhotos}
         locale={locale}
         name={name}
         detailHref={detailed ? undefined : detailHref}
@@ -156,6 +157,14 @@ export function RichVenueCard({
       <div className="space-y-4 p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
+            {branch.slug === "wee-riyadh" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/venues/wee/logo.jpg"
+                alt="WEE"
+                className="mb-2 h-12 w-12 rounded-full border border-slate-100 object-cover"
+              />
+            ) : null}
             {detailed ? (
               <h1
                 className="text-2xl font-semibold tracking-tight"
@@ -223,7 +232,7 @@ export function RichVenueCard({
           <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
             {summary || copy.reviewing}
           </p>
-          {branch.slug === "wee-riyadh" && photos.length === 0 ? (
+          {branch.slug === "wee-riyadh" && displayPhotos.length === 0 ? (
             <a
               href="https://www.corner.inc/place/pUAnAnNEt5Xt"
               target="_blank"
