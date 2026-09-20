@@ -56,6 +56,7 @@ export type VenueCandidatePhotoChoice = {
 export type VenueCandidate = {
   id: string;
   research_key: string;
+  venue_type: "cafe" | "library" | "coworking";
   status: CandidateStatus;
   name_ar: string;
   name_en: string;

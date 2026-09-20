@@ -11,11 +11,22 @@ import type {
   EvidenceLevel,
   VenueCandidate,
 } from "@/features/venue-research/types";
-import { getBrowserSupabaseClient } from "@/lib/supabase/client";
-import { loadFounderCandidates, moderateFounderCandidate } from "@/lib/supabase/founder-venues";
-import { FounderPhotoReview } from "./founder-photo-review";
 
-type AccessState = "checking" | "signed_out" | "denied" | "ready" | "error";
+async function apiModerate(
+  candidateId: string,
+  decision: Extract<CandidateStatus, "approved" | "rejected" | "needs_review">,
+  reason?: string,
+  note?: string,
+) {
+  const res = await fetch("/api/founder/moderate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidateId, decision, reason, note }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+}
+
+type AccessState = "checking" | "ready" | "error";
 type CityFilter = "all" | "riyadh" | "majmaah";
 type StatusFilter = "all" | CandidateStatus;
 
@@ -34,52 +45,17 @@ export function FounderDashboard() {
   const [candidates, setCandidates] = useState<VenueCandidate[]>([]);
   const [cityFilter, setCityFilter] = useState<CityFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [loadingMessage, setLoadingMessage] = useState<string>(copy.checkingAccess);
+  const [loadError, setLoadError] = useState("");
 
   const refresh = useCallback(async () => {
-    const supabase = getBrowserSupabaseClient();
     setAccess("checking");
-    setLoadingMessage(copy.checkingAccess);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session) {
-      setAccess("signed_out");
-      return;
-    }
-
-    const { data: verified, error: userError } = await supabase.auth.getUser();
-    if (userError || !verified.user) {
-      await supabase.auth.signOut();
-      setAccess("signed_out");
-      return;
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", verified.user.id)
-      .maybeSingle<{ role: string }>();
-
-    if (profileError) {
-      setAuthError(copy.setupNeeded);
-      setAccess("error");
-      return;
-    }
-
-    if (!profile || !["founder", "admin"].includes(profile.role)) {
-      setAccess("denied");
-      return;
-    }
-
     try {
-      setLoadingMessage(copy.loadingQueue);
-      setCandidates(await loadFounderCandidates(supabase));
+      const res = await fetch("/api/founder/candidates");
+      if (!res.ok) throw new Error(await res.text());
+      setCandidates(await res.json());
       setAccess("ready");
-    } catch {
-      setAuthError(copy.loadError);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : copy.loadError);
       setAccess("error");
     }
   }, [copy]);
@@ -99,87 +75,12 @@ export function FounderDashboard() {
     [candidates, cityFilter, statusFilter],
   );
 
-  async function signIn(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAuthError("");
-    const { error } = await getBrowserSupabaseClient().auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(copy.signInError);
-      return;
-    }
-    setPassword("");
-    await refresh();
-  }
-
   if (access === "checking") {
-    return <FounderState title={loadingMessage} detail={copy.serverVerified} icon="🔐" />;
-  }
-
-  if (access === "signed_out") {
-    return (
-      <section className="w-full max-w-md rounded-[2rem] border border-white/70 bg-white/95 p-7 text-slate-950 shadow-[0_24px_90px_rgba(0,15,30,0.3)] sm:p-10">
-        <p className="text-xs font-semibold tracking-[0.2em] text-sky-800 uppercase">
-          {copy.founderMode}
-        </p>
-        <h1 className="mt-3 text-3xl font-semibold">{copy.signInTitle}</h1>
-        <p className="mt-3 text-sm leading-7 text-slate-600">{copy.signInDetail}</p>
-        <form className="mt-7 space-y-4" onSubmit={signIn}>
-          <label className="block text-sm font-semibold text-slate-700">
-            {copy.email}
-            <input
-              className="find-input mt-2"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </label>
-          <label className="block text-sm font-semibold text-slate-700">
-            {copy.password}
-            <input
-              className="find-input mt-2"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
-          {authError ? (
-            <p className="rounded-2xl bg-rose-50 p-3 text-sm text-rose-800">{authError}</p>
-          ) : null}
-          <Button type="submit" className="find-primary-button w-full">
-            {copy.signIn}
-          </Button>
-        </form>
-      </section>
-    );
-  }
-
-  if (access === "denied") {
-    return (
-      <FounderState
-        title={copy.deniedTitle}
-        detail={copy.deniedDetail}
-        icon="🛡️"
-        action={
-          <Button
-            className="find-back-button mt-5"
-            onClick={async () => {
-              await getBrowserSupabaseClient().auth.signOut();
-              setAccess("signed_out");
-            }}
-          >
-            {copy.signOut}
-          </Button>
-        }
-      />
-    );
+    return <FounderState title={copy.loadingQueue} detail="" icon="🔐" />;
   }
 
   if (access === "error") {
-    return <FounderState title={copy.errorTitle} detail={authError || copy.loadError} icon="⚠️" />;
+    return <FounderState title={copy.errorTitle} detail={loadError || copy.loadError} icon="⚠️" />;
   }
 
   const counts = Object.fromEntries(
@@ -267,8 +168,20 @@ function CandidateCard({
   const [note, setNote] = useState("");
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [editFields, setEditFields] = useState({
+    focus_eligibility: candidate.focus_eligibility,
+    confidence: candidate.confidence as string,
+    why_it_may_fit: candidate.why_it_may_fit,
+    possible_concerns: candidate.possible_concerns,
+  });
+
   const calculatedScore = calculateFocusEligibility(candidate.venue_candidate_evidence);
-  const band = eligibilityBand(candidate.focus_eligibility);
+  const band = eligibilityBand(
+    editing ? editFields.focus_eligibility : candidate.focus_eligibility,
+  );
   const name = locale === "ar" ? candidate.name_ar : candidate.name_en;
   const branch = locale === "ar" ? candidate.branch_name_ar : candidate.branch_name_en;
   const address = locale === "ar" ? candidate.address_ar : candidate.address_en;
@@ -281,18 +194,31 @@ function CandidateCard({
     setActing(true);
     setActionError("");
     try {
-      await moderateFounderCandidate(
-        getBrowserSupabaseClient(),
-        candidate.id,
-        decision,
-        reason,
-        note,
-      );
+      await apiModerate(candidate.id, decision, reason, note);
       await onUpdated();
     } catch {
       setActionError(copy.actionError);
     } finally {
       setActing(false);
+    }
+  }
+
+  async function saveEdits() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/founder/update-candidate", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId: candidate.id, updates: editFields }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setEditing(false);
+      await onUpdated();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "خطأ في الحفظ");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -302,6 +228,19 @@ function CandidateCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill status={candidate.status} label={copy.status[candidate.status]} />
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">
+              {candidate.venue_type === "library"
+                ? locale === "ar"
+                  ? "📚 مكتبة"
+                  : "📚 Library"
+                : candidate.venue_type === "coworking"
+                  ? locale === "ar"
+                    ? "💻 مساحة عمل"
+                    : "💻 Coworking"
+                  : locale === "ar"
+                    ? "☕ مقهى"
+                    : "☕ Café"}
+            </span>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
               {copy.city[candidate.city_code]}
             </span>
@@ -326,51 +265,136 @@ function CandidateCard({
         </div>
 
         <div className="rounded-[1.5rem] bg-slate-950 p-5 text-white">
-          <p className="text-xs font-semibold tracking-[0.16em] text-sky-200 uppercase">
-            {copy.internalOnly}
-          </p>
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-4xl font-semibold">
-                {candidate.focus_eligibility}
-                <span className="text-lg text-white/55"> / 100</span>
-              </p>
-              <p className="mt-2 text-sm text-white/70">{copy.band[band]}</p>
-            </div>
-            <div className="text-end">
-              <p className="text-xs text-white/50">{copy.confidence}</p>
-              <p className="mt-1 font-semibold">{copy.confidenceValue[candidate.confidence]}</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-[0.16em] text-sky-200 uppercase">
+              {copy.internalOnly}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(!editing);
+                setSaveError("");
+              }}
+              className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 hover:bg-white/20 transition"
+            >
+              {editing ? "إلغاء" : "✏️ تعديل"}
+            </button>
           </div>
-          {calculatedScore !== candidate.focus_eligibility ? (
+
+          {editing ? (
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs text-white/60">
+                  {locale === "ar" ? "ملاءمة مبدئية (0–100)" : "Editorial suitability (0–100)"}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={editFields.focus_eligibility}
+                  onChange={(e) =>
+                    setEditFields((f) => ({ ...f, focus_eligibility: Number(e.target.value) }))
+                  }
+                  className="mt-1 w-full rounded-xl bg-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-white/60">Confidence</label>
+                <select
+                  value={editFields.confidence}
+                  onChange={(e) => setEditFields((f) => ({ ...f, confidence: e.target.value }))}
+                  className="mt-1 w-full rounded-xl bg-white/10 px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                >
+                  <option value="high">عالية</option>
+                  <option value="medium">متوسطة</option>
+                  <option value="low">منخفضة</option>
+                </select>
+              </div>
+              {saveError && <p className="text-xs text-red-300">{saveError}</p>}
+              <button
+                type="button"
+                onClick={saveEdits}
+                disabled={saving}
+                className="w-full rounded-xl bg-sky-500 py-2 text-sm font-semibold text-white hover:bg-sky-600 disabled:opacity-50 transition"
+              >
+                {saving ? "..." : "حفظ"}
+              </button>
+            </div>
+          ) : (
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-4xl font-semibold">
+                  {candidate.focus_eligibility}
+                  <span className="text-lg text-white/55"> / 100</span>
+                </p>
+                <p className="mt-2 text-sm text-white/70">{copy.band[band]}</p>
+              </div>
+              <div className="text-end">
+                <p className="text-xs text-white/50">{copy.confidence}</p>
+                <p className="mt-1 font-semibold">{copy.confidenceValue[candidate.confidence]}</p>
+              </div>
+            </div>
+          )}
+
+          {!editing && calculatedScore !== candidate.focus_eligibility ? (
             <p className="mt-4 rounded-xl bg-amber-400/15 p-3 text-xs text-amber-100">
               {copy.scoreMismatch}
             </p>
           ) : null}
-          <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 text-center text-xs text-white/65">
-            <span>
-              🔗 {candidate.venue_candidate_sources.length}
-              <br />
-              {copy.sources}
-            </span>
-            <span>
-              📸 {candidate.venue_candidate_images.length}
-              <br />
-              {copy.visualSets}
-            </span>
-            <span>
-              🧾 {candidate.venue_candidate_evidence.length}
-              <br />
-              {copy.signals}
-            </span>
-          </div>
+          {!editing && (
+            <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 text-center text-xs text-white/65">
+              <span>
+                🔗 {candidate.venue_candidate_sources.length}
+                <br />
+                {copy.sources}
+              </span>
+              <span>
+                📸 {candidate.venue_candidate_images.length}
+                <br />
+                {copy.visualSets}
+              </span>
+              <span>
+                🧾 {candidate.venue_candidate_evidence.length}
+                <br />
+                {copy.signals}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-5 sm:p-7 lg:grid-cols-2">
-        <Insight title={copy.whyFit} icon="✨" text={candidate.why_it_may_fit} tone="emerald" />
-        <Insight title={copy.concerns} icon="⚠️" text={candidate.possible_concerns} tone="amber" />
-      </div>
+      {editing ? (
+        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-5 sm:p-7 lg:grid-cols-2">
+          <div>
+            <label className="text-xs font-semibold text-emerald-700">✨ {copy.whyFit}</label>
+            <textarea
+              rows={4}
+              value={editFields.why_it_may_fit}
+              onChange={(e) => setEditFields((f) => ({ ...f, why_it_may_fit: e.target.value }))}
+              className="mt-2 w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm leading-7 text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-300"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-amber-700">⚠️ {copy.concerns}</label>
+            <textarea
+              rows={4}
+              value={editFields.possible_concerns}
+              onChange={(e) => setEditFields((f) => ({ ...f, possible_concerns: e.target.value }))}
+              className="mt-2 w-full rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm leading-7 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-300"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 border-t border-slate-100 bg-slate-50/70 p-5 sm:p-7 lg:grid-cols-2">
+          <Insight title={copy.whyFit} icon="✨" text={candidate.why_it_may_fit} tone="emerald" />
+          <Insight
+            title={copy.concerns}
+            icon="⚠️"
+            text={candidate.possible_concerns}
+            tone="amber"
+          />
+        </div>
+      )}
 
       <div className="space-y-3 border-t border-slate-100 p-5 sm:p-7">
         <Disclosure title={copy.focusResearch} count={candidate.venue_candidate_evidence.length}>
@@ -400,7 +424,6 @@ function CandidateCard({
         </Disclosure>
 
         <Disclosure title={copy.visualEvidence} count={candidate.venue_candidate_images.length}>
-          <FounderPhotoReview candidate={candidate} locale={locale} onUpdated={onUpdated} />
           <div className="mt-6 grid gap-3 md:grid-cols-2">
             {candidate.venue_candidate_images.map((image) => (
               <div key={image.id} className="rounded-2xl border border-slate-200 p-4">

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CandidateStatus, VenueCandidate } from "@/features/venue-research/types";
 
 const candidateSelect = `
-  id,research_key,status,name_ar,name_en,branch_name_ar,branch_name_en,
+  id,research_key,venue_type,status,name_ar,name_en,branch_name_ar,branch_name_en,
   city_code,neighborhood_ar,neighborhood_en,address_ar,address_en,
   latitude,longitude,google_maps_url,google_place_id,official_website_url,official_instagram_url,
   official_contact_channels,focus_eligibility,confidence,why_it_may_fit,

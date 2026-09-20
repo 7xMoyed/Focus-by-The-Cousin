@@ -1,13 +1,25 @@
 -- Branch-specific research candidates. Founder review is still required before publication.
 -- Unknown amenities remain unknown; these editorial scores are not community Focus Scores.
+alter table public.venue_candidates
+  add column if not exists venue_type text not null default 'cafe';
+
+do $$
+begin
+  alter table public.venue_candidates
+    add constraint venue_candidates_type_valid
+    check (venue_type in ('cafe', 'library', 'coworking')) not valid;
+exception when duplicate_object then null;
+end;
+$$;
+
 insert into public.venue_candidates (
-  id, research_key, name_ar, name_en, branch_name_ar, branch_name_en,
+  id, research_key, venue_type, name_ar, name_en, branch_name_ar, branch_name_en,
   city_code, neighborhood_ar, neighborhood_en, address_ar, address_en,
   google_maps_url, official_website_url, focus_eligibility, confidence,
   why_it_may_fit, possible_concerns, duplicate_status, duplicate_notes, researched_at
 ) values
   (
-    '33333333-3333-4333-8333-333333333333', 'ksu-king-salman-central-library-riyadh',
+    '33333333-3333-4333-8333-333333333333', 'ksu-king-salman-central-library-riyadh', 'library',
     'مكتبة الملك سلمان المركزية', 'King Salman Central Library',
     'جامعة الملك سعود', 'King Saud University', 'riyadh',
     'جامعة الملك سعود', 'King Saud University', 'حرم جامعة الملك سعود، الرياض',
@@ -19,7 +31,7 @@ insert into public.venue_candidates (
     'not_checked', 'يلزم فحص تكرار الفرع في قاعدة Focus الخاصة قبل الاعتماد.', now()
   ),
   (
-    '44444444-4444-4444-8444-444444444444', 'mu-central-library-al-majmaah',
+    '44444444-4444-4444-8444-444444444444', 'mu-central-library-al-majmaah', 'library',
     'المكتبة المركزية بجامعة المجمعة', 'Majmaah University Central Library',
     'فرع المجمعة', 'Al Majmaah branch', 'majmaah',
     'المدينة الجامعية', 'University campus', 'جامعة المجمعة، المجمعة',
@@ -32,7 +44,7 @@ insert into public.venue_candidates (
     'not_checked', 'يلزم فحص تكرار الفرع في قاعدة Focus الخاصة قبل الاعتماد.', now()
   ),
   (
-    '55555555-5555-4555-8555-555555555555', 'sharik-al-nakheel-riyadh',
+    '55555555-5555-4555-8555-555555555555', 'sharik-al-nakheel-riyadh', 'coworking',
     'شارك', 'Sharik', 'فرع النخيل', 'Al Nakheel branch', 'riyadh',
     'النخيل', 'Al Nakheel', 'شارع التخصصي، حي النخيل، الرياض',
     'Al Takhassusi Street, Al Nakheel, Riyadh',
