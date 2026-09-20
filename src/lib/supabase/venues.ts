@@ -1,5 +1,6 @@
 import { createSupabaseClient } from "./client";
 import type { VenueDimension, VenueEvidence } from "@/lib/recommendations/types";
+import type { PublicVenueEnrichment } from "@/features/venues/place-photo";
 
 type ReviewScoreRow = {
   quietness: number | null;
@@ -47,6 +48,16 @@ export async function getPublishedBranches(cityCode?: string) {
   const branches = data ?? [];
   if (!branches.length) return branches;
 
+  const enrichmentByBranch = new Map<string, PublicVenueEnrichment>();
+  await Promise.all(
+    branches.map(async (branch) => {
+      const { data } = await client.rpc("get_public_venue_enrichment", {
+        target_branch_id: branch.id,
+      });
+      if (data) enrichmentByBranch.set(branch.id, data as PublicVenueEnrichment);
+    }),
+  );
+
   const { data: reviews, error: reviewsError } = await client
     .from("reviews")
     .select(
@@ -60,13 +71,18 @@ export async function getPublishedBranches(cityCode?: string) {
     .returns<ApprovedReviewRow[]>();
 
   if (reviewsError) {
-    return branches.map((branch) => ({ ...branch, evidence: emptyEvidence() }));
+    return branches.map((branch) => ({
+      ...branch,
+      evidence: emptyEvidence(),
+      enrichment: enrichmentByBranch.get(branch.id) ?? null,
+    }));
   }
 
   const evidenceByBranch = aggregateReviewEvidence(reviews ?? []);
   return branches.map((branch) => ({
     ...branch,
     evidence: evidenceByBranch.get(branch.id) ?? emptyEvidence(),
+    enrichment: enrichmentByBranch.get(branch.id) ?? null,
   }));
 }
 

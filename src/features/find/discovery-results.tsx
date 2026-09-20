@@ -21,15 +21,12 @@ import { useLocale } from "@/features/i18n/locale-provider";
 import { loadFocusProfile, updateFocusPreferences } from "@/features/preferences/focus-profile";
 import { FocusPreferencesCard } from "@/features/results/focus-preferences-card";
 import { SessionFilterPanel } from "@/features/results/session-filter-panel";
-import { calculateFocusScore } from "@/lib/recommendations/focus-score";
-import { calculateMatch, hasActiveMatchFilters } from "@/lib/recommendations/matching";
-import type {
-  ActiveMatchFilters,
-  VenueDimension,
-  VenueEvidence,
-} from "@/lib/recommendations/types";
+import { hasActiveMatchFilters } from "@/lib/recommendations/matching";
+import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
 import { rankVenues } from "@/lib/recommendations/venue-ranking";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
+import type { PublicVenueEnrichment } from "@/features/venues/place-photo";
+import { RichVenueCard } from "@/features/venues/rich-venue-card";
 
 const FILTER_STORAGE_KEY = "focus-active-filters-v1";
 
@@ -42,6 +39,11 @@ type Branch = {
   average_spend_min: number | null;
   average_spend_max: number | null;
   evidence?: VenueEvidence;
+  enrichment?: PublicVenueEnrichment | null;
+  slug: string;
+  cities?:
+    | { name_ar: string; name_en: string; slug: string }
+    | Array<{ name_ar: string; name_en: string; slug: string }>;
   venues:
     | { name_ar: string; name_en: string; venue_type: string }
     | Array<{ name_ar: string; name_en: string; venue_type: string }>;
@@ -278,7 +280,7 @@ export function DiscoveryResults() {
             ) : null}
             {!loading && !loadError
               ? rankedBranches.map((branch) => (
-                  <VenueCard
+                  <RichVenueCard
                     key={branch.id}
                     branch={branch}
                     locale={locale}
@@ -308,120 +310,6 @@ export function DiscoveryResults() {
         onApply={applyFilters}
       />
     </FloatingPanel>
-  );
-}
-
-function VenueCard({
-  branch,
-  locale,
-  filters,
-  filtered,
-}: {
-  branch: Branch;
-  locale: "ar" | "en";
-  filters: ActiveMatchFilters;
-  filtered: boolean;
-}) {
-  const venue = Array.isArray(branch.venues) ? branch.venues[0] : branch.venues;
-  const venueName = locale === "ar" ? venue?.name_ar : venue?.name_en;
-  const branchName = locale === "ar" ? branch.name_ar : branch.name_en;
-  const focusScore = branch.evidence
-    ? calculateFocusScore(branch.evidence)
-    : { status: "insufficient-data" as const, reviewCount: 0 };
-  const match = filtered && branch.evidence ? calculateMatch(branch.evidence, filters) : null;
-  const dimensions = branch.evidence ? getVisibleDimensions(branch.evidence) : [];
-  const bestFor = branch.evidence ? getBestFor(branch.evidence, locale) : [];
-  const explanation = match ? buildExplanation(match.matchedDimensions, locale) : null;
-  const copy =
-    locale === "ar"
-      ? {
-          basedOn: "بناءً على اختياراتك",
-          focusScore: "Focus Score",
-          insufficient: "جديد 👀 نحتاج تقييمات أكثر",
-          why: "ليش يناسبك؟ ✨",
-          bestFor: "مناسب لـ",
-          directions: "الاتجاهات ↗",
-          spend: "متوسط الصرف",
-        }
-      : {
-          basedOn: "Based on your choices",
-          focusScore: "Focus Score",
-          insufficient: "New 👀 More reviews needed",
-          why: "Why it fits ✨",
-          bestFor: "Best for",
-          directions: "Directions ↗",
-          spend: "Average spend",
-        };
-
-  return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_10px_30px_rgba(15,23,42,0.06)] sm:p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-lg font-semibold text-slate-950">{venueName}</h3>
-          <p className="mt-1 text-sm text-slate-500">{branchName}</p>
-        </div>
-        {match ? (
-          <div className="shrink-0 rounded-2xl bg-emerald-50 px-3 py-2 text-center">
-            <strong className="block text-base text-emerald-800">🎯 {match.percent}%</strong>
-            <span className="mt-0.5 block text-[0.65rem] text-emerald-700">{copy.basedOn}</span>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3">
-        {focusScore.status === "scored" ? (
-          <p className="text-sm font-semibold text-slate-900">
-            ⭐ {copy.focusScore} {focusScore.score.toFixed(1)} / 10
-          </p>
-        ) : (
-          <p className="text-sm font-medium text-slate-600">{copy.insufficient}</p>
-        )}
-      </div>
-
-      {dimensions.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {dimensions.map((item) => (
-            <span
-              key={item.label}
-              className="rounded-full bg-white px-3 py-2 text-xs text-slate-700 ring-1 ring-slate-200"
-            >
-              {item.label} {item.value.toFixed(1)}
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {bestFor.length ? (
-        <p className="mt-4 text-sm leading-6 text-slate-600">
-          <strong className="text-slate-800">{copy.bestFor}:</strong> {bestFor.join(" · ")}
-        </p>
-      ) : null}
-      {explanation ? (
-        <div className="mt-4 rounded-2xl bg-sky-50 p-4">
-          <p className="text-sm font-semibold text-sky-950">{copy.why}</p>
-          <p className="mt-1 text-sm leading-6 text-sky-900">{explanation}</p>
-        </div>
-      ) : null}
-      {typeof branch.evidence?.distanceMinutes === "number" ? (
-        <p className="mt-4 text-sm text-slate-600">📍 {branch.evidence.distanceMinutes} min</p>
-      ) : null}
-      {branch.average_spend_min !== null ? (
-        <p className="mt-3 text-sm text-slate-600">
-          💸 {copy.spend}: {branch.average_spend_min}
-          {branch.average_spend_max ? `–${branch.average_spend_max}` : ""} SAR
-        </p>
-      ) : null}
-      {branch.google_maps_url ? (
-        <a
-          href={branch.google_maps_url}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex min-h-10 items-center rounded-full bg-slate-100 px-4 text-xs font-semibold text-slate-800 hover:bg-slate-200"
-        >
-          {copy.directions}
-        </a>
-      ) : null}
-    </article>
   );
 }
 
@@ -473,55 +361,6 @@ function readStoredFilters(): SessionFilters | null {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-function getVisibleDimensions(evidence: VenueEvidence) {
-  const labels: Partial<Record<VenueDimension, string>> = {
-    quiet: "🤫",
-    outlets: "🔌",
-    wifi: "📶",
-  };
-  return (["quiet", "outlets", "wifi"] as VenueDimension[])
-    .map((dimension) => ({
-      label: labels[dimension] ?? "",
-      value: evidence.dimensions[dimension],
-    }))
-    .filter((item): item is { label: string; value: number } => typeof item.value === "number");
-}
-
-function getBestFor(evidence: VenueEvidence, locale: "ar" | "en") {
-  if (evidence.reviewCount < 5) return [];
-  const labels = {
-    "group-suitability": locale === "ar" ? "👥 مذاكرة جماعية" : "👥 Group Study",
-    "remote-work-suitability": locale === "ar" ? "💻 شغل عن بعد" : "💻 Remote Work",
-    "quick-session-suitability": locale === "ar" ? "⚡ جلسة سريعة" : "⚡ Quick Sessions",
-    "deep-focus-suitability": locale === "ar" ? "🧠 تركيز عميق" : "🧠 Deep Focus",
-  } as const;
-  return (Object.entries(labels) as Array<[keyof typeof labels, string]>)
-    .filter(([dimension]) => (evidence.dimensions[dimension] ?? 0) >= 8)
-    .map(([, label]) => label)
-    .slice(0, 2);
-}
-
-function buildExplanation(dimensions: VenueDimension[], locale: "ar" | "en") {
-  if (!dimensions.length) return null;
-  const phrases: Partial<Record<VenueDimension, { ar: string; en: string }>> = {
-    quiet: { ar: "هادي", en: "quiet" },
-    outlets: { ar: "فيه أفياش كثيرة", en: "plenty of outlets" },
-    wifi: { ar: "النت مضبوط", en: "reliable Wi-Fi" },
-    comfort: { ar: "جلساته مريحة", en: "comfortable seating" },
-    parking: { ar: "مواقفه سهلة", en: "easy parking" },
-    "long-stay": { ar: "مناسب للجلسات الطويلة", en: "good for long stays" },
-    "group-suitability": { ar: "يناسب القروبات", en: "works well for groups" },
-    "remote-work-suitability": { ar: "مناسب للشغل", en: "remote-work friendly" },
-    "deep-focus-suitability": { ar: "مناسب للتركيز العميق", en: "great for deep focus" },
-    "table-suitability": { ar: "طاولاته مناسبة", en: "study-friendly tables" },
-  };
-  const selected = dimensions
-    .map((dimension) => phrases[dimension]?.[locale])
-    .filter((value): value is string => Boolean(value));
-  if (!selected.length) return null;
-  return `${selected.join(locale === "ar" ? "، " : ", ")}.`;
 }
 
 const arabicCopy = {

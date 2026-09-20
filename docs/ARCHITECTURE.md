@@ -106,6 +106,18 @@ External venue imagery is not copied into Focus storage during research. The das
 source URL, inspection summary, and available attribution, then sends founders back to the provider
 for the original image. This prevents unattributed re-hosting and keeps uncertainty explicit.
 
+The curated Google Places photo flow uses a server-only `GOOGLE_PLACES_API_KEY` with Places API
+(New). Each request refreshes Place Details photo references and Place Photos media URLs with
+`no-store`; neither bytes nor resource names are persisted. Focus stores only the branch's Place
+ID and founder decisions about photo positions, relevance, and display order. The public gallery
+returns only decisions attached to an approved candidate and an already-published branch.
+Every shown photo includes Google Maps attribution and a direct source link; its expanded view
+includes all returned author names, profile links, and avatars. If the API key is missing, the
+gallery fails closed to a branded no-photo state. Because Google can reorder returned photos,
+founders must re-check the proposed gallery after refreshing research and before publication.
+Public photo decisions expire after 24 hours so the gallery fails closed rather than relying
+indefinitely on a position that might point to another image.
+
 ## Localization
 
 - The root document defaults to Arabic and `dir="rtl"`.

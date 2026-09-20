@@ -13,6 +13,7 @@ import type {
 } from "@/features/venue-research/types";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import { loadFounderCandidates, moderateFounderCandidate } from "@/lib/supabase/founder-venues";
+import { FounderPhotoReview } from "./founder-photo-review";
 
 type AccessState = "checking" | "signed_out" | "denied" | "ready" | "error";
 type CityFilter = "all" | "riyadh" | "majmaah";
@@ -399,7 +400,8 @@ function CandidateCard({
         </Disclosure>
 
         <Disclosure title={copy.visualEvidence} count={candidate.venue_candidate_images.length}>
-          <div className="grid gap-3 md:grid-cols-2">
+          <FounderPhotoReview candidate={candidate} locale={locale} onUpdated={onUpdated} />
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
             {candidate.venue_candidate_images.map((image) => (
               <div key={image.id} className="rounded-2xl border border-slate-200 p-4">
                 <p className="text-sm leading-6 text-slate-700">{image.inspection_summary}</p>

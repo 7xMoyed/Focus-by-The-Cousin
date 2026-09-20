@@ -42,6 +42,17 @@ export type VenueCandidateImage = {
   sort_order: number;
 };
 
+export type VenueCandidatePhotoChoice = {
+  id: string;
+  photo_position: number;
+  approved_for_display: boolean;
+  excluded: boolean;
+  display_order: number;
+  relevance: string;
+  founder_note: string | null;
+  reviewed_at: string | null;
+};
+
 export type VenueCandidate = {
   id: string;
   research_key: string;
@@ -58,6 +69,7 @@ export type VenueCandidate = {
   latitude: number | null;
   longitude: number | null;
   google_maps_url: string | null;
+  google_place_id: string | null;
   official_website_url: string | null;
   official_instagram_url: string | null;
   official_contact_channels: Record<string, string>;
@@ -74,4 +86,5 @@ export type VenueCandidate = {
   venue_candidate_sources: VenueCandidateSource[];
   venue_candidate_evidence: VenueCandidateEvidence[];
   venue_candidate_images: VenueCandidateImage[];
+  venue_candidate_photo_choices: VenueCandidatePhotoChoice[];
 };
