@@ -1,13 +1,20 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
 import { calculateFocusScore } from "@/lib/recommendations/focus-score";
 import { calculateMatch } from "@/lib/recommendations/matching";
+import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
+import {
+  facilityDefinition,
+  facilityKeys,
+  type FacilityKey,
+  type PublicFacilityState,
+} from "./facility-definitions";
+import { PlaceGallery, PlacePhotoStrip, usePlaceGallery } from "./place-gallery";
 import { weeProvidedPhotos, type PublicVenueEnrichment } from "./place-photo";
-import { PlaceGallery, usePlaceGallery } from "./place-gallery";
 
 export type DisplayBranch = {
   id: string;
@@ -28,19 +35,44 @@ export type DisplayBranch = {
     | Array<{ name_ar: string; name_en: string; slug: string }>;
 };
 
-const signalLabels = {
-  tables: { ar: "🪑 طاولات للعمل", en: "🪑 Work tables" },
-  seating: { ar: "✨ جلسات داخلية", en: "✨ Indoor seating" },
-  wifi: { ar: "📶 Wi-Fi", en: "📶 Wi-Fi" },
-  outlets: { ar: "🔌 أفياش", en: "🔌 Outlets" },
-} as const;
-
 const bestForLabels = {
   remote_work: { ar: "💻 شغل", en: "💻 Remote work" },
   deep_focus: { ar: "🧠 تركيز", en: "🧠 Deep focus" },
   group_study: { ar: "👥 قروب", en: "👥 Group study" },
   quick_study: { ar: "⚡ جلسة سريعة", en: "⚡ Quick session" },
 } as const;
+
+function legacyFacilities(signals: string[]): Partial<Record<FacilityKey, PublicFacilityState>> {
+  const result: Partial<Record<FacilityKey, PublicFacilityState>> = {};
+  if (signals.includes("tables") || signals.includes("seating")) result.seating = "yes";
+  if (signals.includes("wifi")) result.wifi = "yes";
+  if (signals.includes("outlets")) result.outlets = "yes";
+  return result;
+}
+
+function cleanBranchName(value: string, locale: "ar" | "en") {
+  return locale === "ar"
+    ? value.replace(/^فرع\s+/u, "").trim()
+    : value.replace(/\s+branch$/iu, "").trim();
+}
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill={filled ? "currentColor" : "none"}
+    >
+      <path
+        d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7A1.75 1.75 0 0 1 17.25 4.75v15.1L12 16.75l-5.25 3.1V4.75Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export function RichVenueCard({
   branch,
@@ -61,11 +93,8 @@ export function RichVenueCard({
     branch.slug === "wee-riyadh"
       ? "WEE"
       : (locale === "ar" ? venue?.name_ar : venue?.name_en) || venue?.name_en || "";
-  const verifiedArabicName = branch.slug === "wee-riyadh" && locale === "ar" ? "ووي" : null;
-  const location = [
-    locale === "ar" ? branch.name_ar : branch.name_en,
-    locale === "ar" ? city?.name_ar : city?.name_en,
-  ]
+  const branchName = cleanBranchName(locale === "ar" ? branch.name_ar : branch.name_en, locale);
+  const location = [branchName, locale === "ar" ? city?.name_ar : city?.name_en]
     .filter(Boolean)
     .join(" · ");
   const detailHref = `/places/${encodeURIComponent(branch.slug)}`;
@@ -81,37 +110,41 @@ export function RichVenueCard({
       : null;
   const enrichment = branch.enrichment;
   const summary = locale === "ar" ? enrichment?.summaryAr : enrichment?.summaryEn;
-  const signals = (enrichment?.signals ?? []).flatMap((key) =>
-    key in signalLabels ? [signalLabels[key as keyof typeof signalLabels][locale]] : [],
-  );
+  const facilities = enrichment?.facilities ?? legacyFacilities(enrichment?.signals ?? []);
+  const displayedFacilities = facilityKeys.flatMap((key) => {
+    const state = facilities[key];
+    if (!state || (state === "no" && !facilityDefinition[key].usefulWhenNo)) return [];
+    return [{ key, state }];
+  });
   const bestFor = (enrichment?.bestFor ?? []).flatMap((key) =>
     key in bestForLabels ? [bestForLabels[key as keyof typeof bestForLabels][locale]] : [],
   );
+  const preliminaryRating = enrichment?.preliminaryRating;
   const copy =
     locale === "ar"
       ? {
           new: "جديد على Focus 👀",
-          reviews: "نحتاج تقييمات أكثر عشان نحسب Focus Score.",
-          promising: "مبدئيًا مناسب لـ",
-          why: "ليش لفت انتباهنا؟ ✨",
-          reviewing: "نراجع صور المكان وتفاصيله قبل إضافة إشارات Focus.",
+          focusScore: "Focus Score من المجتمع",
+          preliminary: "تقييم Focus المبدئي",
+          promising: "يناسب غالبًا",
+          why: "عن المكان",
+          reviewing: "نراجع تفاصيل المكان ونضيف فقط المعلومات المدعومة بدليل.",
           view: "عرض المكان",
-          save: saved ? "♥ محفوظ" : "♡ حفظ",
-          directions: "الاتجاهات ↗",
-          sourcePhotos: "شوف صور المكان على Corner ↗",
-          match: "بناءً على جلستك",
+          save: saved ? "محفوظ" : "احفظها",
+          directions: "الاتجاهات",
+          match: "مناسب لجلستك",
         }
       : {
           new: "New on Focus 👀",
-          reviews: "We need more reviews before calculating a Focus Score.",
-          promising: "Looks promising for",
-          why: "Why it caught our eye ✨",
-          reviewing: "We’re reviewing place photos and details before adding Focus signals.",
+          focusScore: "Community Focus Score",
+          preliminary: "Preliminary Focus rating",
+          promising: "Best suited for",
+          why: "About this place",
+          reviewing: "We’re reviewing the place and only add details supported by evidence.",
           view: "View place",
-          save: saved ? "♥ Saved" : "♡ Save",
-          directions: "Directions ↗",
-          sourcePhotos: "See place photos on Corner ↗",
-          match: "Based on your session",
+          save: saved ? "Saved" : "Save",
+          directions: "Directions",
+          match: "Fits your session",
         };
 
   useEffect(() => {
@@ -133,8 +166,9 @@ export function RichVenueCard({
     let ids: string[] = [];
     try {
       const parsed = JSON.parse(window.localStorage.getItem("focus-saved-venues-v1") ?? "[]");
-      if (Array.isArray(parsed))
+      if (Array.isArray(parsed)) {
         ids = parsed.filter((value): value is string => typeof value === "string");
+      }
     } catch {
       // A malformed local list should not prevent saving this venue.
     }
@@ -146,133 +180,152 @@ export function RichVenueCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-[1.8rem] border border-slate-200 bg-white text-slate-950 shadow-[0_18px_45px_rgba(10,48,67,0.12)]">
-      <PlaceGallery
-        photos={displayPhotos}
-        locale={locale}
-        name={name}
-        detailHref={detailed ? undefined : detailHref}
-        expanded={detailed}
-      />
-      <div className="space-y-4 p-5 sm:p-6">
+    <article className="overflow-hidden rounded-[1.75rem] border border-white/80 bg-white text-slate-950 shadow-[0_20px_55px_rgba(10,48,67,0.14)] ring-1 ring-slate-200/70">
+      <PlaceGallery photos={displayPhotos} locale={locale} name={name} />
+      <div className="space-y-4 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
             {branch.slug === "wee-riyadh" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src="/venues/wee/logo.jpg"
-                alt="WEE"
-                className="mb-2 h-12 w-12 rounded-full border border-slate-100 object-cover"
-              />
+              <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[1rem] border border-slate-200 bg-white shadow-sm">
+                <Image
+                  src="/venues/wee/logo.jpg"
+                  alt="WEE logo"
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              </span>
             ) : null}
-            {detailed ? (
-              <h1
-                className="text-2xl font-semibold tracking-tight"
-                dir={name === "WEE" ? "ltr" : undefined}
-              >
-                {name}
-                {verifiedArabicName ? (
-                  <span className="ms-2 text-base font-medium text-slate-500">
-                    {verifiedArabicName}
-                  </span>
-                ) : null}
-              </h1>
-            ) : (
-              <Link
-                href={detailHref}
-                className="block text-2xl font-semibold tracking-tight hover:text-sky-800"
-                dir={name === "WEE" ? "ltr" : undefined}
-              >
-                {name}
-                {verifiedArabicName ? (
-                  <span className="ms-2 text-base font-medium text-slate-500">
-                    {verifiedArabicName}
-                  </span>
-                ) : null}
-              </Link>
-            )}
-            <p className="mt-1 text-sm font-medium text-slate-500">{location}</p>
+            <div className="min-w-0">
+              {detailed ? (
+                <h1
+                  className="truncate text-2xl font-semibold tracking-tight"
+                  dir={name === "WEE" ? "ltr" : undefined}
+                >
+                  {name}
+                </h1>
+              ) : (
+                <Link
+                  href={detailHref}
+                  className="block truncate text-2xl font-semibold tracking-tight transition-colors hover:text-sky-800"
+                  dir={name === "WEE" ? "ltr" : undefined}
+                >
+                  {name}
+                </Link>
+              )}
+              <p className="mt-0.5 truncate text-sm font-medium text-slate-500">{location}</p>
+            </div>
           </div>
           {match ? (
-            <span className="shrink-0 rounded-2xl bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-800">
-              <strong className="block text-base">🎯 {match.percent}%</strong>
+            <span className="shrink-0 rounded-2xl bg-[#e9f5f2] px-3 py-2 text-center text-[11px] text-[#155c58]">
+              <strong className="block text-sm" dir="ltr">
+                🎯 {match.percent}%
+              </strong>
               {copy.match}
             </span>
           ) : null}
         </div>
-        <div className="rounded-2xl border border-sky-100 bg-[#edf7f9] px-4 py-3">
+
+        <div className="flex items-end justify-between gap-3 border-y border-slate-100 py-3">
           {focusScore.status === "scored" ? (
-            <p className="font-semibold">⭐ Focus Score {focusScore.score.toFixed(1)} / 10</p>
+            <div>
+              <p className="text-xl font-semibold tracking-tight" dir="ltr">
+                ⭐ {focusScore.score.toFixed(1)}/10
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{copy.focusScore}</p>
+            </div>
+          ) : typeof preliminaryRating === "number" ? (
+            <div>
+              <p className="text-xl font-semibold tracking-tight" dir="ltr">
+                ⭐ {preliminaryRating.toFixed(1).replace(".0", "")}/10
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-500">{copy.preliminary}</p>
+            </div>
           ) : (
-            <>
-              <p className="font-semibold text-[#0b4559]">{copy.new}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">{copy.reviews}</p>
-            </>
+            <p className="text-sm font-semibold text-[#0b5265]">{copy.new}</p>
           )}
-        </div>
-        {bestFor.length ? (
-          <p className="text-sm leading-6">
-            <span className="font-semibold">{copy.promising}</span> {bestFor.join(" · ")}
-          </p>
-        ) : null}
-        {signals.length ? (
-          <div className="flex flex-wrap gap-2">
-            {signals.map((signal) => (
-              <span
-                key={signal}
-                className="rounded-full bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 ring-1 ring-slate-200"
-              >
-                {signal}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="border-t border-slate-100 pt-3">
-          <p className="text-sm font-semibold text-[#0b4559]">{copy.why}</p>
-          <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
-            {summary || copy.reviewing}
-          </p>
-          {branch.slug === "wee-riyadh" && displayPhotos.length === 0 ? (
-            <a
-              href="https://www.corner.inc/place/pUAnAnNEt5Xt"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-xs font-medium text-sky-800 underline underline-offset-2"
-            >
-              {copy.sourcePhotos}
-            </a>
+          {bestFor.length ? (
+            <p className="max-w-[55%] text-end text-xs leading-5 text-slate-600">
+              <span className="font-semibold text-slate-800">{copy.promising}:</span>{" "}
+              {bestFor.join(" · ")}
+            </p>
           ) : null}
         </div>
-        {detailed && branch.address_ar ? (
+
+        {displayedFacilities.length ? (
+          <div
+            className="grid grid-cols-2 gap-2"
+            aria-label={locale === "ar" ? "مرافق المكان" : "Venue facilities"}
+          >
+            {displayedFacilities.map(({ key, state }) => {
+              const definition = facilityDefinition[key];
+              return (
+                <div
+                  key={key}
+                  className={`flex min-h-9 items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-medium ${
+                    displayedFacilities.length === 1 ? "col-span-2 max-w-[70%]" : ""
+                  } ${
+                    state === "yes" ? "bg-[#eef7f5] text-[#174f4d]" : "bg-stone-100 text-stone-500"
+                  }`}
+                >
+                  <span aria-hidden="true" className="text-[11px]">
+                    {state === "yes" ? "✓" : "×"}
+                  </span>
+                  <span aria-hidden="true">{definition.icon}</span>
+                  <span className="truncate">{definition[locale]}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {summary ? (
+          <div>
+            <p className="text-xs font-semibold text-[#0b5265]">{copy.why}</p>
+            <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{summary}</p>
+          </div>
+        ) : displayedFacilities.length === 0 ? (
+          <p className="text-xs leading-5 text-slate-500">{copy.reviewing}</p>
+        ) : null}
+
+        <PlacePhotoStrip photos={displayPhotos} locale={locale} name={name} />
+
+        {detailed && locale === "ar" && branch.address_ar ? (
           <p className="text-sm text-slate-500">📍 {branch.address_ar}</p>
         ) : null}
-        <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+
+        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_auto_auto]">
           {!detailed ? (
             <Link
               href={detailHref}
-              className="find-primary-button min-h-11 flex-1 whitespace-nowrap text-xs"
+              className="find-primary-button col-span-2 min-h-11 text-xs sm:col-span-1 sm:px-5"
             >
               {copy.view}
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={toggleSave}
-            aria-pressed={saved}
-            className="min-h-11 rounded-full border border-slate-200 px-4 text-xs font-semibold text-slate-700"
-          >
-            {copy.save}
-          </button>
           {branch.google_maps_url ? (
             <a
               href={branch.google_maps_url}
               target="_blank"
               rel="noreferrer"
-              className="min-h-11 rounded-full border border-slate-200 px-4 py-3 text-xs font-semibold text-slate-600"
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
             >
-              {copy.directions}
+              {copy.directions} ↗
             </a>
           ) : null}
+          <button
+            type="button"
+            onClick={toggleSave}
+            aria-pressed={saved}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 text-xs font-semibold transition-[transform,background-color,border-color,color] active:scale-95 motion-reduce:transition-none ${
+              saved
+                ? "border-[#9fc6c0] bg-[#e9f5f2] text-[#174f4d]"
+                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <BookmarkIcon filled={saved} />
+            {copy.save}
+          </button>
         </div>
       </div>
     </article>

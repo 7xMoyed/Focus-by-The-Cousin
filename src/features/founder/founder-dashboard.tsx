@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useLocale } from "@/features/i18n/locale-provider";
+import { FounderFacilityEditor } from "@/features/founder/founder-facility-editor";
 import { calculateFocusEligibility, eligibilityBand } from "@/features/venue-research/eligibility";
 import type {
   CandidateStatus,
@@ -397,6 +398,17 @@ function CandidateCard({
       )}
 
       <div className="space-y-3 border-t border-slate-100 p-5 sm:p-7">
+        <Disclosure
+          title={locale === "ar" ? "خصائص البطاقة العامة" : "Public card attributes"}
+          count={
+            candidate.venue_candidate_facilities.filter(
+              (facility) => facility.confirmed_state !== "unknown",
+            ).length
+          }
+        >
+          <FounderFacilityEditor candidate={candidate} locale={locale} onUpdated={onUpdated} />
+        </Disclosure>
+
         <Disclosure title={copy.focusResearch} count={candidate.venue_candidate_evidence.length}>
           <div className="grid gap-3 md:grid-cols-2">
             {candidate.venue_candidate_evidence

@@ -8,13 +8,15 @@ const candidateSelect = `
   id,research_key,venue_type,status,name_ar,name_en,branch_name_ar,branch_name_en,
   city_code,neighborhood_ar,neighborhood_en,address_ar,address_en,
   latitude,longitude,google_maps_url,google_place_id,official_website_url,official_instagram_url,
-  official_contact_channels,focus_eligibility,confidence,why_it_may_fit,
+  official_contact_channels,focus_eligibility,public_preliminary_rating,
+  public_preliminary_rating_approved,confidence,why_it_may_fit,
   possible_concerns,duplicate_status,duplicate_notes,approved_for_publication,
   moderation_reason,reviewed_at,researched_at,
   venue_candidate_sources(id,source_type,source_title,source_url,checked_at,information_summary,attribution_text),
   venue_candidate_evidence(id,category,evidence_level,score_awarded,max_score,summary),
   venue_candidate_images(id,source_type,source_url,external_preview_url,attribution_text,inspection_summary,sort_order),
-  venue_candidate_photo_choices(id,photo_position,approved_for_display,excluded,display_order,relevance,founder_note,reviewed_at)
+  venue_candidate_photo_choices(id,photo_position,approved_for_display,excluded,display_order,relevance,founder_note,reviewed_at),
+  venue_candidate_facilities(id,facility_key,proposed_state,confirmed_state,evidence_summary,source_url,confirmed_at)
 `;
 
 function getServiceClient() {
@@ -47,6 +49,7 @@ export async function GET(request: NextRequest) {
       (a, b) => a.sort_order - b.sort_order,
     ),
     venue_candidate_photo_choices: c.venue_candidate_photo_choices ?? [],
+    venue_candidate_facilities: c.venue_candidate_facilities ?? [],
   }));
 
   return NextResponse.json(candidates);

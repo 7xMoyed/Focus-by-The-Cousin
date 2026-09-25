@@ -52,4 +52,11 @@ export type PublicVenueEnrichment = {
   bestFor: string[];
   signals: string[];
   photoPositions: number[];
+  preliminaryRating?: number | null;
+  facilities?: Partial<
+    Record<
+      import("./facility-definitions").FacilityKey,
+      import("./facility-definitions").PublicFacilityState
+    >
+  >;
 };

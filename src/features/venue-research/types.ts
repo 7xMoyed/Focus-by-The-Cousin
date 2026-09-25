@@ -53,6 +53,16 @@ export type VenueCandidatePhotoChoice = {
   reviewed_at: string | null;
 };
 
+export type VenueCandidateFacility = {
+  id: string;
+  facility_key: import("@/features/venues/facility-definitions").FacilityKey;
+  proposed_state: import("@/features/venues/facility-definitions").FacilityState;
+  confirmed_state: import("@/features/venues/facility-definitions").FacilityState;
+  evidence_summary: string;
+  source_url: string | null;
+  confirmed_at: string | null;
+};
+
 export type VenueCandidate = {
   id: string;
   research_key: string;
@@ -75,6 +85,8 @@ export type VenueCandidate = {
   official_instagram_url: string | null;
   official_contact_channels: Record<string, string>;
   focus_eligibility: number;
+  public_preliminary_rating: number | null;
+  public_preliminary_rating_approved: boolean;
   confidence: "high" | "medium" | "low";
   why_it_may_fit: string;
   possible_concerns: string;
@@ -88,4 +100,5 @@ export type VenueCandidate = {
   venue_candidate_evidence: VenueCandidateEvidence[];
   venue_candidate_images: VenueCandidateImage[];
   venue_candidate_photo_choices: VenueCandidatePhotoChoice[];
+  venue_candidate_facilities: VenueCandidateFacility[];
 };
