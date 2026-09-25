@@ -10,7 +10,7 @@ const candidateSelect = `
   latitude,longitude,google_maps_url,google_place_id,official_website_url,official_instagram_url,
   official_contact_channels,focus_eligibility,public_preliminary_rating,
   public_preliminary_rating_approved,confidence,why_it_may_fit,
-  possible_concerns,duplicate_status,duplicate_notes,approved_for_publication,
+  possible_concerns,duplicate_status,duplicate_notes,approved_for_publication,published_branch_id,
   moderation_reason,reviewed_at,researched_at,
   venue_candidate_sources(id,source_type,source_title,source_url,checked_at,information_summary,attribution_text),
   venue_candidate_evidence(id,category,evidence_level,score_awarded,max_score,summary),

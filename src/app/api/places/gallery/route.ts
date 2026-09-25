@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { NextRequest } from "next/server";
 
 import type { PublicVenueEnrichment } from "@/features/venues/place-photo";
 import { getPlacePhotos } from "@/lib/google/places-photos";
+import { isValidFounderSession } from "@/lib/founder-session";
 import { createSupabaseClient } from "@/lib/supabase/client";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const candidateId = url.searchParams.get("candidate");
   const branchId = url.searchParams.get("branch");
@@ -16,19 +18,17 @@ export async function GET(request: Request) {
   let positions: number[] | undefined;
 
   if (candidateId) {
-    const token = request.headers.get("authorization")?.replace(/^Bearer /i, "");
-    if (!token || !/^[0-9a-f-]{36}$/i.test(candidateId)) {
+    if (
+      !isValidFounderSession(request.cookies.get("founder_auth")?.value) ||
+      !/^[0-9a-f-]{36}$/i.test(candidateId)
+    ) {
       return Response.json({ error: "Not authorized." }, { status: 401 });
     }
     const client = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-      { global: { headers: { Authorization: `Bearer ${token}` } } },
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
     );
-    const { data: user, error: userError } = await client.auth.getUser(token);
-    if (userError || !user.user) {
-      return Response.json({ error: "Not authorized." }, { status: 401 });
-    }
     const { data, error } = await client
       .from("venue_candidates")
       .select("google_place_id")

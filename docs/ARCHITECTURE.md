@@ -90,17 +90,17 @@ credentials must never be exposed to client bundles or committed to the reposito
 
 ### Founder venue review
 
-`/founder` is a private operational surface that reuses Supabase Auth and the existing Focus visual
-system. The browser verifies the current auth session with Supabase, while database RLS remains the
-authority for every candidate, evidence, source, image-reference, and moderation read. A user is a
-founder only when the existing `profiles` row has `role = 'founder'` or `role = 'admin'`; users cannot
-write that protected column through normal profile grants.
+`/founder` is a private operational surface protected by a signed, HTTP-only founder session cookie.
+Founder credentials stay in server-only environment configuration. Every founder read and mutation
+runs through a same-origin route handler that validates this session before using the server-only
+Supabase service client. The browser never receives the service-role key and cannot write founder
+tables directly.
 
 Research is staged separately from public venue data in additive `venue_candidate_*` tables. An
 approval marks a candidate ready for a later publication step but does not insert into
-`venue_branches`, so no research record can become public automatically. Moderation runs through a
-security-definer RPC that rechecks the authenticated founder identity and appends a compact activity
-record. Rejected candidates keep their evidence and provenance.
+`venue_branches`, so no research record can become public automatically. Publication is a separate,
+explicit founder action and is blocked until branch identity and duplicate checks are resolved.
+Rejected candidates keep their evidence and provenance.
 
 External venue imagery is not copied into Focus storage during research. The dashboard keeps the
 source URL, inspection summary, and available attribution, then sends founders back to the provider

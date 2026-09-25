@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 
 import type { PlacePhoto, VenuePhoto } from "./place-photo";
 
-export function usePlaceGallery(source: { branch?: string; candidate?: string; token?: string }) {
+export function usePlaceGallery(source: { branch?: string; candidate?: string }) {
   const [photos, setPhotos] = useState<PlacePhoto[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "empty" | "unavailable">("loading");
-  const { branch, candidate, token } = source;
+  const { branch, candidate } = source;
 
   useEffect(() => {
     if (!branch && !candidate) return;
@@ -17,7 +17,6 @@ export function usePlaceGallery(source: { branch?: string; candidate?: string; t
       : `branch=${encodeURIComponent(branch!)}`;
     void fetch(`/api/places/gallery?${query}`, {
       signal: controller.signal,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       cache: "no-store",
     })
       .then((response) => (response.ok ? response.json() : Promise.reject()))
@@ -31,7 +30,7 @@ export function usePlaceGallery(source: { branch?: string; candidate?: string; t
         if (!controller.signal.aborted) setStatus("unavailable");
       });
     return () => controller.abort();
-  }, [branch, candidate, token]);
+  }, [branch, candidate]);
   return { photos, status };
 }
 

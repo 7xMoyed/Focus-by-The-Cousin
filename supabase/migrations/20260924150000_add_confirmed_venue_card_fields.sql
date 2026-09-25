@@ -37,9 +37,20 @@ alter table public.venue_candidate_facilities enable row level security;
 revoke all on public.venue_candidate_facilities from anon, authenticated;
 grant select on public.venue_candidate_facilities to authenticated;
 
-create policy "founders_select_candidate_facilities"
-  on public.venue_candidate_facilities for select to authenticated
-  using ((select public.is_focus_founder(auth.uid())));
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename = 'venue_candidate_facilities'
+      and policyname = 'founders_select_candidate_facilities'
+  ) then
+    create policy "founders_select_candidate_facilities"
+      on public.venue_candidate_facilities for select to authenticated
+      using ((select public.is_focus_founder(auth.uid())));
+  end if;
+end;
+$$;
 
 -- WEE already had founder-approved public seating signals and supplied venue photos.
 -- Preserve that one existing public fact in the new model; do not infer other facilities.

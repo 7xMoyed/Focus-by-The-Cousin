@@ -4,8 +4,6 @@ import { useEffect, useState } from "react";
 
 import type { VenueCandidate } from "@/features/venue-research/types";
 import { PlaceGallery, usePlaceGallery } from "@/features/venues/place-gallery";
-import { getBrowserSupabaseClient } from "@/lib/supabase/client";
-import { moveFounderPhotoChoice, setFounderPhotoChoice } from "@/lib/supabase/founder-venues";
 
 const categories = [
   "interior",
@@ -28,14 +26,12 @@ export function FounderPhotoReview({
   locale: "ar" | "en";
   onUpdated: () => Promise<void>;
 }) {
-  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [relevance, setRelevance] = useState<Record<number, string>>({});
   const [currentTime, setCurrentTime] = useState(0);
   const { photos, status } = usePlaceGallery({
-    candidate: token && candidate.google_place_id ? candidate.id : undefined,
-    token,
+    candidate: candidate.google_place_id ? candidate.id : undefined,
   });
   const copy =
     locale === "ar"
@@ -79,17 +75,8 @@ export function FounderPhotoReview({
         };
 
   useEffect(() => {
-    let live = true;
     const timer = window.setTimeout(() => setCurrentTime(Date.now()), 0);
-    void getBrowserSupabaseClient()
-      .auth.getSession()
-      .then(({ data }) => {
-        if (live) setToken(data.session?.access_token ?? "");
-      });
-    return () => {
-      live = false;
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
   }, []);
 
   const approvedChoices = candidate.venue_candidate_photo_choices
@@ -118,14 +105,19 @@ export function FounderPhotoReview({
     setBusy(true);
     setError("");
     try {
-      await setFounderPhotoChoice(
-        getBrowserSupabaseClient(),
-        candidate.id,
-        position,
-        decision,
-        choice?.display_order ?? approvedChoices.length,
-        category,
-      );
+      const response = await fetch("/api/founder/photo-choice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set",
+          candidateId: candidate.id,
+          position,
+          decision,
+          order: choice?.display_order ?? approvedChoices.length,
+          relevance: category,
+        }),
+      });
+      if (!response.ok) throw new Error("photo_choice_failed");
       await onUpdated();
     } catch {
       setError(copy.error);
@@ -138,7 +130,12 @@ export function FounderPhotoReview({
     setBusy(true);
     setError("");
     try {
-      await moveFounderPhotoChoice(getBrowserSupabaseClient(), candidate.id, position, direction);
+      const response = await fetch("/api/founder/photo-choice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "move", candidateId: candidate.id, position, direction }),
+      });
+      if (!response.ok) throw new Error("photo_move_failed");
       await onUpdated();
     } catch {
       setError(copy.error);

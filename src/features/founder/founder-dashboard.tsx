@@ -204,6 +204,28 @@ function CandidateCard({
     }
   }
 
+  async function publishCandidate() {
+    setActing(true);
+    setActionError("");
+    try {
+      const response = await fetch("/api/founder/publish-candidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidateId: candidate.id }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(result.error ?? "publish_failed");
+      }
+      await onUpdated();
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "publish_failed";
+      setActionError(publicationErrors[locale][code] ?? copy.publishError);
+    } finally {
+      setActing(false);
+    }
+  }
+
   async function saveEdits() {
     setSaving(true);
     setSaveError("");
@@ -229,6 +251,11 @@ function CandidateCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <StatusPill status={candidate.status} label={copy.status[candidate.status]} />
+            {candidate.approved_for_publication ? (
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                {copy.published}
+              </span>
+            ) : null}
             <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">
               {candidate.venue_type === "library"
                 ? locale === "ar"
@@ -498,7 +525,7 @@ function CandidateCard({
           />
         </div>
         {actionError ? <p className="mt-3 text-sm text-rose-700">{actionError}</p> : null}
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Button
             disabled={acting}
             className="min-h-12 rounded-full bg-emerald-700 px-5 text-white hover:bg-emerald-800"
@@ -520,6 +547,15 @@ function CandidateCard({
           >
             {copy.reject}
           </Button>
+          {candidate.status === "approved" && !candidate.approved_for_publication ? (
+            <Button
+              disabled={acting}
+              className="min-h-12 rounded-full bg-sky-800 px-5 text-white hover:bg-sky-900"
+              onClick={() => void publishCandidate()}
+            >
+              {copy.publish}
+            </Button>
+          ) : null}
         </div>
         <p className="mt-4 text-center text-xs text-slate-500">{copy.noAutoPublish}</p>
       </div>
@@ -688,24 +724,42 @@ function Disclosure({
   );
 }
 
+const publicationErrors: Record<"ar" | "en", Record<string, string>> = {
+  ar: {
+    candidate_must_be_approved: "اعتمد البحث أولًا قبل النشر.",
+    resolve_duplicate_before_publish: "احسم فحص التكرار وهوية الفرع قبل النشر.",
+    branch_identity_incomplete: "اسم الفرع بالعربي والإنجليزي ورابط Google Maps مطلوبة قبل النشر.",
+    city_not_found: "المدينة غير مربوطة ببيانات النشر.",
+    publish_failed: "تعذر نشر المكان. لم تتغير حالة النشر.",
+  },
+  en: {
+    candidate_must_be_approved: "Approve the research before publishing.",
+    resolve_duplicate_before_publish: "Resolve the duplicate check and branch identity first.",
+    branch_identity_incomplete:
+      "Arabic and English branch names plus a Google Maps URL are required before publishing.",
+    city_not_found: "The city is not connected to publication data.",
+    publish_failed: "The venue could not be published. Publication state did not change.",
+  },
+};
+
 const founderCopy = {
   ar: {
     founderMode: "Focus by The Cousin — Founder Mode",
     title: "استوديو مراجعة الأماكن",
     subtitle: "مساحة خاصة لمراجعة البحث والأدلة قبل اعتماد أي مكان. لا يُنشر شيء تلقائيًا.",
     checkingAccess: "نتأكد من صلاحية المؤسس…",
-    serverVerified: "يتم التحقق من الحساب عبر Supabase ومن الدور عبر RLS.",
+    serverVerified: "يتم التحقق من جلسة المؤسس على الخادم قبل كل عملية خاصة.",
     loadingQueue: "نحمّل قائمة المراجعة…",
     signInTitle: "دخول المؤسسين",
-    signInDetail: "سجّل بحساب Supabase المعتمد. الحسابات العادية لا تستطيع رؤية بيانات البحث.",
+    signInDetail: "استخدم حساب المؤسس المعتمد. الحسابات العادية لا تستطيع رؤية بيانات البحث.",
     email: "البريد الإلكتروني",
     password: "كلمة المرور",
     signIn: "دخول آمن",
     signInError: "تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة ثانية.",
     deniedTitle: "الحساب ليس لديه صلاحية Founder",
-    deniedDetail: "لم نعرض أي بيانات داخلية. يلزم تعيين دور founder أو admin من Supabase أولًا.",
+    deniedDetail: "لم نعرض أي بيانات داخلية. يلزم تسجيل الدخول بحساب مؤسس معتمد.",
     signOut: "تسجيل الخروج",
-    setupNeeded: "مخطط Founder غير مطبق بعد أو تعذر قراءة الدور.",
+    setupNeeded: "إعدادات Founder غير مكتملة أو تعذر التحقق من الجلسة.",
     errorTitle: "تعذر فتح استوديو المؤسسين",
     loadError: "تعذر تحميل البيانات الخاصة الآن.",
     pending: "قيد المراجعة",
@@ -746,6 +800,9 @@ const founderCopy = {
     reasonRequired: "اختر سببًا قبل الرفض أو طلب مراجعة.",
     actionError: "تعذر حفظ القرار. لم تتغير حالة المكان.",
     approve: "اعتماد",
+    publish: "نشر للعامة",
+    published: "منشور للعامة",
+    publishError: "تعذر نشر المكان. راجع بيانات الفرع وحاول مرة ثانية.",
     needsReviewAction: "يحتاج مراجعة",
     reject: "رفض",
     noAutoPublish: "الاعتماد يسمح بمرحلة النشر التالية فقط؛ لا يُنشئ صفحة عامة تلقائيًا.",
@@ -785,19 +842,18 @@ const founderCopy = {
     subtitle:
       "A private workspace for reviewing research and evidence before any venue is approved. Nothing publishes automatically.",
     checkingAccess: "Verifying founder access…",
-    serverVerified: "The account is verified through Supabase and the role is enforced by RLS.",
+    serverVerified: "The founder session is verified server-side before every private operation.",
     loadingQueue: "Loading the review queue…",
     signInTitle: "Founder sign in",
-    signInDetail: "Use an approved Supabase account. Regular users cannot see research data.",
+    signInDetail: "Use an approved founder account. Regular users cannot see research data.",
     email: "Email",
     password: "Password",
     signIn: "Secure sign in",
     signInError: "Sign in failed. Check your details and try again.",
     deniedTitle: "This account does not have Founder access",
-    deniedDetail:
-      "No internal data was shown. A founder or admin role must be assigned in Supabase first.",
+    deniedDetail: "No internal data was shown. Sign in with an approved founder account.",
     signOut: "Sign out",
-    setupNeeded: "The Founder schema is not applied yet or the role could not be read.",
+    setupNeeded: "Founder configuration is incomplete or the session could not be verified.",
     errorTitle: "Founder Studio is unavailable",
     loadError: "Private venue data could not be loaded right now.",
     pending: "Pending",
@@ -842,6 +898,9 @@ const founderCopy = {
     reasonRequired: "Choose a reason before rejecting or requesting review.",
     actionError: "The decision could not be saved. No status changed.",
     approve: "Approve",
+    publish: "Publish publicly",
+    published: "Publicly published",
+    publishError: "The venue could not be published. Review the branch details and try again.",
     needsReviewAction: "Needs review",
     reject: "Reject",
     noAutoPublish:

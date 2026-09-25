@@ -93,6 +93,7 @@ export type VenueCandidate = {
   duplicate_status: "no_visible_match" | "possible_match" | "confirmed_duplicate" | "not_checked";
   duplicate_notes: string | null;
   approved_for_publication: boolean;
+  published_branch_id: string | null;
   moderation_reason: string | null;
   reviewed_at: string | null;
   researched_at: string;
