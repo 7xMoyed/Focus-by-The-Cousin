@@ -29,7 +29,7 @@ export async function getPublishedBranches(cityCode?: string) {
   let query = client
     .from("venue_branches")
     .select(
-      "id,slug,name_ar,name_en,address_ar,google_maps_url,average_spend_min,average_spend_max,venues!inner(name_ar,name_en,venue_type),cities!inner(name_ar,name_en,slug),opening_hours(day_of_week,opens_at,closes_at,is_closed)",
+      "id,slug,name_ar,name_en,address_ar,google_maps_url,latitude,longitude,average_spend_min,average_spend_max,venues!inner(name_ar,name_en,venue_type),cities!inner(name_ar,name_en,slug),opening_hours(day_of_week,opens_at,closes_at,is_closed)",
     )
     .eq("is_published", true)
     .order("name_en")
@@ -46,7 +46,13 @@ export async function getPublishedBranches(cityCode?: string) {
   }
 
   const branches = data ?? [];
-  if (!branches.length) return branches;
+  if (!branches.length) {
+    return branches.map((branch) => ({
+      ...branch,
+      evidence: emptyEvidence(),
+      enrichment: null as PublicVenueEnrichment | null,
+    }));
+  }
 
   const enrichmentByBranch = new Map<string, PublicVenueEnrichment>();
   await Promise.all(

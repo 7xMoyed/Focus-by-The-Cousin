@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { calculateFocusScore } from "@/lib/recommendations/focus-score";
 import { calculateMatch } from "@/lib/recommendations/matching";
 import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
+import type { Priority } from "@/features/find/types";
+import { loadSavedVenueIds, setVenueSaved } from "@/features/saved-venues/saved-venues";
 import {
   facilityDefinition,
   facilityKeys,
@@ -23,10 +25,18 @@ export type DisplayBranch = {
   name_en: string;
   address_ar: string | null;
   google_maps_url: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   average_spend_min: number | null;
   average_spend_max: number | null;
   evidence?: VenueEvidence;
   enrichment?: PublicVenueEnrichment | null;
+  opening_hours?: Array<{
+    day_of_week: number;
+    opens_at: string | null;
+    closes_at: string | null;
+    is_closed: boolean;
+  }>;
   venues:
     | { name_ar: string; name_en: string; venue_type: string }
     | Array<{ name_ar: string; name_en: string; venue_type: string }>;
@@ -41,6 +51,28 @@ const bestForLabels = {
   group_study: { ar: "👥 قروب", en: "👥 Group study" },
   quick_study: { ar: "⚡ جلسة سريعة", en: "⚡ Quick session" },
 } as const;
+
+const priorityFacility: Partial<Record<Priority, FacilityKey>> = {
+  quiet: "quiet",
+  outlets: "outlets",
+  wifi: "wifi",
+  comfort: "seating",
+  parking: "parking",
+  coffee: "coffee",
+  food: "food",
+  restrooms: "restrooms",
+};
+
+const sessionFacility: Partial<
+  Record<NonNullable<ActiveMatchFilters["sessionType"]>, FacilityKey>
+> = {
+  "deep-focus": "study_friendly",
+  "group-study": "group_friendly",
+  "remote-work": "work_friendly",
+  "online-class": "wifi",
+  "light-study": "seating",
+  "quick-study": "parking",
+};
 
 function legacyFacilities(signals: string[]): Partial<Record<FacilityKey, PublicFacilityState>> {
   const result: Partial<Record<FacilityKey, PublicFacilityState>> = {};
@@ -111,14 +143,25 @@ export function RichVenueCard({
   const enrichment = branch.enrichment;
   const summary = locale === "ar" ? enrichment?.summaryAr : enrichment?.summaryEn;
   const facilities = enrichment?.facilities ?? legacyFacilities(enrichment?.signals ?? []);
-  const displayedFacilities = facilityKeys.flatMap((key) => {
-    const state = facilities[key];
-    if (!state || (state === "no" && !facilityDefinition[key].usefulWhenNo)) return [];
-    return [{ key, state }];
-  });
+  const requestedFacilityKeys = [
+    filters?.sessionType ? sessionFacility[filters.sessionType] : undefined,
+    ...(filters?.priorities ?? []).map((priority) => priorityFacility[priority]),
+  ].filter((key): key is FacilityKey => Boolean(key));
+  const orderedFacilityKeys = [...new Set([...requestedFacilityKeys, ...facilityKeys])];
+  const displayedFacilities = orderedFacilityKeys
+    .flatMap((key) => {
+      const state = facilities[key];
+      if (!state || (state === "no" && !facilityDefinition[key].usefulWhenNo)) return [];
+      return [{ key, state }];
+    })
+    .slice(0, 6);
   const bestFor = (enrichment?.bestFor ?? []).flatMap((key) =>
     key in bestForLabels ? [bestForLabels[key as keyof typeof bestForLabels][locale]] : [],
   );
+  const factReasons = [...new Set(requestedFacilityKeys)]
+    .filter((facilityKey) => facilities[facilityKey] === "yes")
+    .map((facilityKey) => facilityDefinition[facilityKey][locale]);
+  const openNow = isOpenNow(branch.opening_hours);
   const preliminaryRating = enrichment?.preliminaryRating;
   const copy =
     locale === "ar"
@@ -133,6 +176,9 @@ export function RichVenueCard({
           save: saved ? "محفوظ" : "احفظها",
           directions: "الاتجاهات",
           match: "مناسب لجلستك",
+          whyMatch: "ليش يناسبك",
+          openNow: "مفتوح الآن",
+          minutesAway: (minutes: number) => `حوالي ${minutes} دقيقة`,
         }
       : {
           new: "New on Focus 👀",
@@ -145,16 +191,15 @@ export function RichVenueCard({
           save: saved ? "Saved" : "Save",
           directions: "Directions",
           match: "Fits your session",
+          whyMatch: "Why it fits",
+          openNow: "Open now",
+          minutesAway: (minutes: number) => `About ${minutes} min away`,
         };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        setSaved(
-          JSON.parse(window.localStorage.getItem("focus-saved-venues-v1") ?? "[]").includes(
-            branch.id,
-          ),
-        );
+        void loadSavedVenueIds().then((ids) => setSaved(ids.has(branch.id)));
       } catch {
         setSaved(false);
       }
@@ -163,24 +208,13 @@ export function RichVenueCard({
   }, [branch.id]);
 
   function toggleSave() {
-    let ids: string[] = [];
-    try {
-      const parsed = JSON.parse(window.localStorage.getItem("focus-saved-venues-v1") ?? "[]");
-      if (Array.isArray(parsed)) {
-        ids = parsed.filter((value): value is string => typeof value === "string");
-      }
-    } catch {
-      // A malformed local list should not prevent saving this venue.
-    }
-    const next = ids.includes(branch.id)
-      ? ids.filter((id) => id !== branch.id)
-      : [...ids, branch.id];
-    window.localStorage.setItem("focus-saved-venues-v1", JSON.stringify(next));
-    setSaved(next.includes(branch.id));
+    const next = !saved;
+    setSaved(next);
+    void setVenueSaved(branch.id, next).catch(() => undefined);
   }
 
   return (
-    <article className="overflow-hidden rounded-[1.75rem] border border-white/80 bg-white text-slate-950 shadow-[0_20px_55px_rgba(10,48,67,0.14)] ring-1 ring-slate-200/70">
+    <article className="focus-surface overflow-hidden rounded-[1.75rem]">
       <PlaceGallery photos={displayPhotos} locale={locale} name={name} />
       <div className="space-y-4 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
@@ -213,7 +247,7 @@ export function RichVenueCard({
                   {name}
                 </Link>
               )}
-              <p className="mt-0.5 truncate text-sm font-medium text-slate-500">{location}</p>
+              <p className="focus-muted-text mt-0.5 truncate text-sm font-medium">{location}</p>
             </div>
           </div>
           {match ? (
@@ -226,27 +260,29 @@ export function RichVenueCard({
           ) : null}
         </div>
 
-        <div className="flex items-end justify-between gap-3 border-y border-slate-100 py-3">
+        <div className="flex items-end justify-between gap-3 border-y border-[hsl(var(--border)/0.55)] py-3">
           {focusScore.status === "scored" ? (
             <div>
               <p className="text-xl font-semibold tracking-tight" dir="ltr">
                 ⭐ {focusScore.score.toFixed(1)}/10
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">{copy.focusScore}</p>
+              <p className="focus-muted-text mt-0.5 text-[11px]">{copy.focusScore}</p>
             </div>
           ) : typeof preliminaryRating === "number" ? (
             <div>
               <p className="text-xl font-semibold tracking-tight" dir="ltr">
                 ⭐ {preliminaryRating.toFixed(1).replace(".0", "")}/10
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">{copy.preliminary}</p>
+              <p className="focus-muted-text mt-0.5 text-[11px]">{copy.preliminary}</p>
             </div>
           ) : (
-            <p className="text-sm font-semibold text-[#0b5265]">{copy.new}</p>
+            <p className="focus-accent-text text-sm font-semibold">{copy.new}</p>
           )}
           {bestFor.length ? (
-            <p className="max-w-[55%] text-end text-xs leading-5 text-slate-600">
-              <span className="font-semibold text-slate-800">{copy.promising}:</span>{" "}
+            <p className="focus-muted-text max-w-[55%] text-end text-xs leading-5">
+              <span className="font-semibold text-[hsl(var(--panel-foreground))]">
+                {copy.promising}:
+              </span>{" "}
               {bestFor.join(" · ")}
             </p>
           ) : null}
@@ -265,7 +301,9 @@ export function RichVenueCard({
                   className={`flex min-h-9 items-center gap-2 rounded-xl px-2.5 py-2 text-xs font-medium ${
                     displayedFacilities.length === 1 ? "col-span-2 max-w-[70%]" : ""
                   } ${
-                    state === "yes" ? "bg-[#eef7f5] text-[#174f4d]" : "bg-stone-100 text-stone-500"
+                    state === "yes"
+                      ? "bg-[hsl(var(--focus-accent-soft))] text-[hsl(var(--focus-accent))]"
+                      : "focus-soft-surface focus-muted-text"
                   }`}
                 >
                   <span aria-hidden="true" className="text-[11px]">
@@ -279,22 +317,42 @@ export function RichVenueCard({
           </div>
         ) : null}
 
+        {factReasons.length ? (
+          <div className="rounded-2xl bg-[hsl(var(--focus-accent-soft))] px-3.5 py-3">
+            <p className="text-[11px] font-semibold text-[hsl(var(--focus-accent))]">
+              🎯 {copy.whyMatch}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[hsl(var(--panel-foreground))]">
+              {factReasons.slice(0, 3).join(" · ")}
+            </p>
+          </div>
+        ) : null}
+
         {summary ? (
           <div>
-            <p className="text-xs font-semibold text-[#0b5265]">{copy.why}</p>
-            <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{summary}</p>
+            <p className="focus-accent-text text-xs font-semibold">{copy.why}</p>
+            <p className="focus-muted-text mt-1 line-clamp-2 text-sm leading-6">{summary}</p>
           </div>
         ) : displayedFacilities.length === 0 ? (
-          <p className="text-xs leading-5 text-slate-500">{copy.reviewing}</p>
+          <p className="focus-muted-text text-xs leading-5">{copy.reviewing}</p>
         ) : null}
 
         <PlacePhotoStrip photos={displayPhotos} locale={locale} name={name} />
 
         {detailed && locale === "ar" && branch.address_ar ? (
-          <p className="text-sm text-slate-500">📍 {branch.address_ar}</p>
+          <p className="focus-muted-text text-sm">📍 {branch.address_ar}</p>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_auto_auto]">
+        {openNow === true ? (
+          <p className="text-xs font-semibold text-[hsl(var(--focus-accent))]">● {copy.openNow}</p>
+        ) : null}
+        {typeof branch.evidence?.distanceMinutes === "number" ? (
+          <p className="focus-muted-text text-xs">
+            🚗 {copy.minutesAway(branch.evidence.distanceMinutes)}
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-2 gap-2 border-t border-[hsl(var(--border)/0.55)] pt-4 sm:grid-cols-[1fr_auto_auto]">
           {!detailed ? (
             <Link
               href={detailHref}
@@ -308,7 +366,7 @@ export function RichVenueCard({
               href={branch.google_maps_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              className="focus-chip justify-center"
             >
               {copy.directions} ↗
             </a>
@@ -319,8 +377,8 @@ export function RichVenueCard({
             aria-pressed={saved}
             className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 text-xs font-semibold transition-[transform,background-color,border-color,color] active:scale-95 motion-reduce:transition-none ${
               saved
-                ? "border-[#9fc6c0] bg-[#e9f5f2] text-[#174f4d]"
-                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                ? "border-[hsl(var(--focus-accent)/0.55)] bg-[hsl(var(--focus-accent-soft))] text-[hsl(var(--focus-accent))]"
+                : "border-[hsl(var(--border))] bg-[hsl(var(--surface-raised))] text-[hsl(var(--panel-foreground))] hover:bg-[hsl(var(--surface-soft))]"
             }`}
           >
             <BookmarkIcon filled={saved} />
@@ -330,4 +388,27 @@ export function RichVenueCard({
       </div>
     </article>
   );
+}
+
+function isOpenNow(hours: DisplayBranch["opening_hours"]): boolean | null {
+  if (!hours?.length) return null;
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date()).map((part) => [part.type, part.value]),
+  );
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const today = hours.find((item) => item.day_of_week === dayMap[parts.weekday]);
+  if (!today || today.is_closed) return false;
+  if (!today.opens_at || !today.closes_at) return null;
+  const current = `${parts.hour}:${parts.minute}`;
+  const opensAt = today.opens_at.slice(0, 5);
+  const closesAt = today.closes_at.slice(0, 5);
+  if (closesAt < opensAt) return current >= opensAt || current < closesAt;
+  return current >= opensAt && current < closesAt;
 }

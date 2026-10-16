@@ -34,6 +34,7 @@ import type {
 } from "@/features/find/types";
 import { DISCOVERY_STORAGE_KEY, emptyDiscoveryAnswers } from "@/features/find/types";
 import { useLocale } from "@/features/i18n/locale-provider";
+import { withTimeout } from "@/lib/async/with-timeout";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type Stage = "intro" | "questions" | "matching" | "teaser" | "signup" | "success";
@@ -80,12 +81,11 @@ export function DiscoveryFlow() {
     }
 
     const finishHydration = async () => {
-      const supabase = getBrowserSupabaseClient();
-
       try {
-        const { data } = await supabase.auth.getSession();
+        const supabase = getBrowserSupabaseClient();
+        const { data } = await withTimeout(supabase.auth.getSession(), 2500);
         if (data.session?.user && authMode !== "confirmed" && explicitMode !== "session") {
-          const profile = await loadFocusProfile(supabase, data.session.user.id);
+          const profile = await withTimeout(loadFocusProfile(supabase, data.session.user.id), 2500);
           if (profile?.onboardingCompletedAt) {
             router.replace("/results");
             return;
@@ -140,21 +140,19 @@ export function DiscoveryFlow() {
     if (new URLSearchParams(window.location.search).get("auth") !== "confirmed") return;
 
     const supabase = getBrowserSupabaseClient();
-    void supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session?.user) {
-        setStage("signup");
-        return;
-      }
+    void withTimeout(supabase.auth.getSession(), 2500)
+      .then(async ({ data }) => {
+        if (!data.session?.user) {
+          setStage("signup");
+          return;
+        }
 
-      try {
         await saveDiscoverySession(supabase, data.session.user.id, sessionId, answers, locale);
         await completeFocusOnboarding(supabase, data.session.user.id, answers, locale);
         setStage("success");
         window.setTimeout(() => router.replace(`/results?session=${sessionId}`), 700);
-      } catch {
-        setStage("signup");
-      }
-    });
+      })
+      .catch(() => setStage("signup"));
   }, [answers, hydrated, locale, router, sessionId]);
 
   useEffect(() => {
@@ -218,7 +216,7 @@ export function DiscoveryFlow() {
 
     try {
       const supabase = getBrowserSupabaseClient();
-      const { data } = await supabase.auth.getSession();
+      const { data } = await withTimeout(supabase.auth.getSession(), 2500);
       if (!data.session?.user) {
         setStage("signup");
         return;
@@ -252,7 +250,17 @@ export function DiscoveryFlow() {
 
     setLocationStatus("requesting");
     navigator.geolocation.getCurrentPosition(
-      () => setLocationStatus("ready"),
+      (position) => {
+        window.sessionStorage.setItem(
+          "focus-nearby-location-v1",
+          JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            expiresAt: Date.now() + 30 * 60 * 1000,
+          }),
+        );
+        setLocationStatus("ready");
+      },
       () => {
         setLocationStatus("denied");
         patchAnswers({ locationChoice: "area" });
@@ -571,18 +579,20 @@ function TeaserCard({ locale, answers }: { locale: "ar" | "en"; answers: Discove
   const venueName =
     locale === "ar" ? "بنرتب المتاح حسب اختياراتك" : "We’ll rank what’s available for you";
   return (
-    <div className="relative mt-7 overflow-hidden rounded-3xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-5 shadow-[0_14px_40px_rgba(14,63,86,0.09)] sm:p-6">
+    <div className="focus-soft-surface relative mt-7 overflow-hidden rounded-3xl p-5 shadow-[0_14px_40px_hsl(var(--shadow-color)/0.09)] sm:p-6">
       <div
         className="absolute -end-5 -top-7 size-24 rounded-full bg-sky-100/60 blur-xl"
         aria-hidden="true"
       />
       <p className="relative text-sm font-semibold text-sky-800">🎯 {copy.teaserMatch}</p>
-      <h2 className="relative mt-3 text-xl font-semibold text-slate-950">{venueName}</h2>
+      <h2 className="relative mt-3 text-xl font-semibold text-[hsl(var(--panel-foreground))]">
+        {venueName}
+      </h2>
       <div className="relative mt-4 flex flex-wrap gap-2">
         {labels.map((item) => (
           <span
             key={item.value}
-            className="rounded-full bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm"
+            className="rounded-full bg-[hsl(var(--surface-raised))] px-3 py-2 text-xs font-medium text-[hsl(var(--panel-foreground))] shadow-sm"
           >
             {item.label}
           </span>

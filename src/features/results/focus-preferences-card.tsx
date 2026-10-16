@@ -57,9 +57,11 @@ export function FocusPreferencesCard({
   }
 
   return (
-    <section className="mt-6 rounded-3xl border border-sky-100 bg-sky-50/70 p-5">
+    <section className="mt-6 rounded-3xl border border-[hsl(var(--border)/0.7)] bg-[hsl(var(--focus-accent-soft))] p-5">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-base font-semibold text-slate-950">{copy.title}</h2>
+        <h2 className="text-base font-semibold text-[hsl(var(--panel-foreground))]">
+          {copy.title}
+        </h2>
         {!editing ? (
           <button
             type="button"
@@ -67,7 +69,7 @@ export function FocusPreferencesCard({
               setSelected(profile.preferredPriorities);
               setEditing(true);
             }}
-            className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-sky-900 shadow-sm"
+            className="focus-chip min-h-9"
           >
             {copy.edit}
           </button>
@@ -81,7 +83,7 @@ export function FocusPreferencesCard({
             .map((choice) => (
               <span
                 key={choice.value}
-                className="rounded-full bg-white px-3 py-2 text-xs font-medium text-slate-700"
+                className="rounded-full bg-[hsl(var(--surface-raised))] px-3 py-2 text-xs font-medium text-[hsl(var(--panel-foreground))]"
               >
                 {choice.label}
               </span>
@@ -89,7 +91,7 @@ export function FocusPreferencesCard({
         </div>
       ) : (
         <div className="mt-4">
-          <p className="text-xs leading-6 text-slate-600">{copy.hint}</p>
+          <p className="focus-muted-text text-xs leading-6">{copy.hint}</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {choices.map((choice) => {
               const active = selected.includes(choice.value);
@@ -109,8 +111,8 @@ export function FocusPreferencesCard({
                   }}
                   className={`min-h-11 rounded-2xl border px-3 py-2 text-start text-xs font-medium transition ${
                     active
-                      ? "border-sky-300 bg-white text-sky-950 shadow-sm"
-                      : "border-transparent bg-white/55 text-slate-600"
+                      ? "border-[hsl(var(--focus-accent)/0.6)] bg-[hsl(var(--surface-raised))] text-[hsl(var(--focus-accent))] shadow-sm"
+                      : "border-transparent bg-[hsl(var(--surface-raised)/0.6)] text-[hsl(var(--muted-foreground))]"
                   }`}
                 >
                   {choice.label} {active ? "✓" : ""}
@@ -131,7 +133,7 @@ export function FocusPreferencesCard({
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="min-h-11 rounded-full bg-white px-4 text-xs font-semibold text-slate-600"
+              className="focus-chip justify-center"
             >
               {copy.cancel}
             </button>

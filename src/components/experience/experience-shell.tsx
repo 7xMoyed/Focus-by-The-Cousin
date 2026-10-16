@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { LanguageSwitcher } from "@/components/experience/language-switcher";
+import { ThemeToggle } from "@/components/experience/theme-toggle";
 
 const backgroundVideo =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260314_131748_f2ca2a28-fed7-44c8-b9a9-bd9acdd5ec31.mp4";
@@ -30,7 +31,10 @@ export function ExperienceShell({ children }: { children: ReactNode }) {
         >
           Focus by The Cousin<sup className="text-xs">®</sup>
         </Link>
-        <LanguageSwitcher />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LanguageSwitcher />
+        </div>
       </header>
 
       <main className="relative z-10 flex w-full flex-1 items-center justify-center px-4 py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">

@@ -25,6 +25,7 @@
 
 html {
   background: hsl(var(--background));
+  transition: background-color 180ms ease;
 }
 
 body {
@@ -33,6 +34,9 @@ body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-body);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
 }
 
 html[lang="ar"] body {
@@ -57,9 +61,9 @@ button {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: hsl(var(--brand-ink));
+  background: hsl(var(--primary));
   padding-inline: 1.75rem;
-  color: white;
+  color: hsl(var(--primary-foreground));
   font-size: 0.9rem;
   font-weight: 600;
   box-shadow: 0 12px 28px rgb(3 49 70 / 18%);
@@ -90,7 +94,7 @@ button {
   gap: 0.45rem;
   border-radius: 9999px;
   padding-inline: 0.75rem;
-  color: rgb(71 85 105);
+  color: hsl(var(--muted-foreground));
   font-size: 0.8rem;
   font-weight: 600;
   transition:
@@ -99,8 +103,8 @@ button {
 }
 
 .find-back-button:hover {
-  background: rgb(241 245 249);
-  color: rgb(15 23 42);
+  background: hsl(var(--panel-muted));
+  color: hsl(var(--panel-foreground));
 }
 
 .find-choice {
@@ -110,9 +114,9 @@ button {
   cursor: pointer;
   align-items: center;
   gap: 0.75rem;
-  border: 1px solid rgb(226 232 240);
+  border: 1px solid hsl(var(--border));
   border-radius: 1.1rem;
-  background: rgb(255 255 255 / 85%);
+  background: hsl(var(--surface-raised) / 88%);
   padding: 0.9rem 1rem;
   text-align: start;
   box-shadow: 0 5px 18px rgb(15 23 42 / 3%);
@@ -125,21 +129,21 @@ button {
 
 .find-choice:hover {
   transform: translateY(-1px);
-  border-color: rgb(186 230 253);
+  border-color: hsl(var(--focus-accent) / 55%);
   box-shadow: 0 8px 22px rgb(14 116 144 / 8%);
 }
 
 .find-choice-selected {
   transform: scale(1.01);
-  border-color: rgb(125 211 252);
-  background: rgb(240 249 255);
+  border-color: hsl(var(--focus-accent) / 70%);
+  background: hsl(var(--focus-accent-soft));
   box-shadow: 0 10px 25px rgb(14 116 144 / 10%);
 }
 
 .find-field-label {
   margin-bottom: 0.5rem;
   display: block;
-  color: rgb(30 41 59);
+  color: hsl(var(--panel-foreground));
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -147,17 +151,96 @@ button {
 .find-input {
   min-height: 3.25rem;
   width: 100%;
-  border: 1px solid rgb(203 213 225);
+  border: 1px solid hsl(var(--input));
   border-radius: 1rem;
-  background: white;
+  background: hsl(var(--surface-raised));
   padding-inline: 1rem;
-  color: rgb(15 23 42);
+  color: hsl(var(--panel-foreground));
   font-size: 1rem;
   box-shadow: inset 0 1px 2px rgb(15 23 42 / 3%);
 }
 
 .find-input::placeholder {
-  color: rgb(148 163 184);
+  color: hsl(var(--muted-foreground));
+}
+
+.focus-surface {
+  border: 1px solid hsl(var(--border) / 72%);
+  background: hsl(var(--surface-raised));
+  color: hsl(var(--panel-foreground));
+  box-shadow: 0 20px 55px hsl(var(--shadow-color) / 14%);
+}
+
+.focus-soft-surface {
+  background: hsl(var(--surface-soft));
+}
+
+.focus-muted-text {
+  color: hsl(var(--muted-foreground));
+}
+
+.focus-accent-text {
+  color: hsl(var(--focus-accent));
+}
+
+.focus-chip {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid hsl(var(--border) / 78%);
+  border-radius: 9999px;
+  background: hsl(var(--surface-raised) / 92%);
+  padding-inline: 0.9rem;
+  color: hsl(var(--panel-foreground));
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.focus-chip:hover,
+.focus-chip[aria-pressed="true"] {
+  border-color: hsl(var(--focus-accent) / 65%);
+  background: hsl(var(--focus-accent-soft));
+  transform: translateY(-1px);
+}
+
+.focus-chip:focus-visible,
+.focus-icon-button:focus-visible {
+  outline: 2px solid hsl(var(--focus-accent) / 75%);
+  outline-offset: 2px;
+}
+
+.focus-icon-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(var(--border) / 76%);
+  border-radius: 9999px;
+  background: hsl(var(--surface-raised) / 90%);
+  color: hsl(var(--panel-foreground));
+}
+
+html[data-theme="dark"] :where(.text-slate-950, .text-slate-900, .text-slate-800, .text-slate-700) {
+  color: hsl(var(--panel-foreground));
+}
+
+html[data-theme="dark"] :where(.text-slate-600, .text-slate-500, .text-slate-400) {
+  color: hsl(var(--muted-foreground));
+}
+
+html[data-theme="dark"] :where(.bg-slate-50, .bg-slate-100, .bg-sky-50) {
+  background-color: hsl(var(--surface-soft));
+}
+
+html[data-theme="dark"] :where(.border-slate-100, .border-slate-200, .border-sky-100) {
+  border-color: hsl(var(--border));
 }
 
 @keyframes find-step-in {
@@ -303,6 +386,20 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html,
+  body {
+    scroll-behavior: auto;
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   video {
     display: none;
   }

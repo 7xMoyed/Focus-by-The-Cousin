@@ -1,18 +1,69 @@
 :root {
-  --background: 201 100% 13%;
-  --foreground: 0 0% 100%;
-  --muted-foreground: 240 4% 66%;
-  --primary: 0 0% 100%;
-  --primary-foreground: 0 0% 4%;
-  --secondary: 0 0% 10%;
-  --muted: 0 0% 10%;
-  --accent: 0 0% 10%;
-  --border: 0 0% 18%;
-  --input: 0 0% 18%;
+  --background: 42 35% 96%;
+  --foreground: 201 61% 13%;
+  --muted-foreground: 201 15% 42%;
+  --primary: 201 91% 15%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 29% 91%;
+  --muted: 40 25% 93%;
+  --accent: 166 28% 89%;
+  --border: 38 18% 82%;
+  --input: 38 18% 78%;
   --panel: 0 0% 100%;
   --panel-foreground: 222 47% 11%;
-  --panel-muted: 210 40% 98%;
+  --panel-muted: 42 33% 96%;
   --brand-ink: 201 91% 15%;
+  --surface-raised: 0 0% 100%;
+  --surface-soft: 42 33% 96%;
+  --focus-accent: 168 35% 33%;
+  --focus-accent-soft: 166 31% 92%;
+  --shadow-color: 201 55% 13%;
   --font-display: "Instrument Serif", serif;
   --font-body: "Inter", sans-serif;
+}
+
+html[data-theme="dark"] {
+  --background: 201 52% 9%;
+  --foreground: 42 36% 94%;
+  --muted-foreground: 198 13% 67%;
+  --primary: 42 36% 94%;
+  --primary-foreground: 201 52% 9%;
+  --secondary: 201 31% 16%;
+  --muted: 201 28% 15%;
+  --accent: 166 24% 19%;
+  --border: 199 19% 25%;
+  --input: 199 19% 28%;
+  --panel: 201 39% 13%;
+  --panel-foreground: 42 36% 94%;
+  --panel-muted: 201 31% 16%;
+  --brand-ink: 167 31% 64%;
+  --surface-raised: 201 39% 13%;
+  --surface-soft: 201 31% 16%;
+  --focus-accent: 167 35% 62%;
+  --focus-accent-soft: 166 24% 19%;
+  --shadow-color: 205 72% 3%;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    --background: 201 52% 9%;
+    --foreground: 42 36% 94%;
+    --muted-foreground: 198 13% 67%;
+    --primary: 42 36% 94%;
+    --primary-foreground: 201 52% 9%;
+    --secondary: 201 31% 16%;
+    --muted: 201 28% 15%;
+    --accent: 166 24% 19%;
+    --border: 199 19% 25%;
+    --input: 199 19% 28%;
+    --panel: 201 39% 13%;
+    --panel-foreground: 42 36% 94%;
+    --panel-muted: 201 31% 16%;
+    --brand-ink: 167 31% 64%;
+    --surface-raised: 201 39% 13%;
+    --surface-soft: 201 31% 16%;
+    --focus-accent: 167 35% 62%;
+    --focus-accent-soft: 166 24% 19%;
+    --shadow-color: 205 72% 3%;
+  }
 }

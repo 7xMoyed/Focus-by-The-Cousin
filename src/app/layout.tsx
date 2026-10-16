@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
+import { cookies } from "next/headers";
 
 import { LocaleProvider } from "@/features/i18n/locale-provider";
+import { ThemeProvider } from "@/features/theme/theme-provider";
 import { SITE_DESCRIPTION_AR, SITE_DESCRIPTION_EN, SITE_URL } from "@/lib/site";
 
 import "./globals.css";
@@ -52,11 +54,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const savedTheme = (await cookies()).get("focus-theme")?.value;
+  const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : undefined;
+
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" data-theme={theme} suppressHydrationWarning>
       <body className={thmanyah.variable}>
-        <LocaleProvider>{children}</LocaleProvider>
+        <ThemeProvider>
+          <LocaleProvider>{children}</LocaleProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -22,13 +22,21 @@ import { loadFocusProfile, updateFocusPreferences } from "@/features/preferences
 import { FocusPreferencesCard } from "@/features/results/focus-preferences-card";
 import { SessionFilterPanel } from "@/features/results/session-filter-panel";
 import { hasActiveMatchFilters } from "@/lib/recommendations/matching";
+import { calculateFocusScore } from "@/lib/recommendations/focus-score";
 import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
 import { rankVenues } from "@/lib/recommendations/venue-ranking";
+import { withTimeout } from "@/lib/async/with-timeout";
 import { getBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { PublicVenueEnrichment } from "@/features/venues/place-photo";
 import { RichVenueCard } from "@/features/venues/rich-venue-card";
 
 const FILTER_STORAGE_KEY = "focus-active-filters-v1";
+const SEARCH_STORAGE_KEY = "focus-search-hub-v1";
+
+type SortOption = "match" | "distance" | "rating" | "name";
+type VenueTypeFilter = "all" | "cafe" | "library" | "coworking";
+type MoodPreset = "detective" | "couch" | "quick" | "group" | "sunny" | "class";
+type NearbyLocation = { latitude: number; longitude: number; expiresAt: number };
 
 type Branch = {
   id: string;
@@ -36,10 +44,18 @@ type Branch = {
   name_en: string;
   address_ar: string | null;
   google_maps_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
   average_spend_min: number | null;
   average_spend_max: number | null;
   evidence?: VenueEvidence;
   enrichment?: PublicVenueEnrichment | null;
+  opening_hours?: Array<{
+    day_of_week: number;
+    opens_at: string | null;
+    closes_at: string | null;
+    is_closed: boolean;
+  }>;
   slug: string;
   cities?:
     | { name_ar: string; name_en: string; slug: string }
@@ -61,6 +77,13 @@ export function DiscoveryResults() {
   const [loading, setLoading] = useState(true);
   const [filterOpen, setFilterOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [query, setQuery] = useState("");
+  const [openNowOnly, setOpenNowOnly] = useState(false);
+  const [sort, setSort] = useState<SortOption>("match");
+  const [venueType, setVenueType] = useState<VenueTypeFilter>("all");
+  const [searchReady, setSearchReady] = useState(false);
+  const [activeMood, setActiveMood] = useState<MoodPreset | null>(null);
+  const [nearbyLocation, setNearbyLocation] = useState<NearbyLocation | null>(null);
 
   const copy = locale === "ar" ? arabicCopy : englishCopy;
   const activeMatchFilters = useMemo<ActiveMatchFilters>(
@@ -74,10 +97,95 @@ export function DiscoveryResults() {
   );
   const filtersActive = hasActiveMatchFilters(activeMatchFilters);
   const city: City = filters.city ?? profile?.preferredCity ?? "riyadh";
-  const rankedBranches = useMemo(
-    () => rankVenues(branches, activeMatchFilters),
-    [activeMatchFilters, branches],
-  );
+  const rankedBranches = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase(locale === "ar" ? "ar" : "en");
+    const branchesWithDistance = branches.map((branch) => {
+      if (
+        !nearbyLocation ||
+        typeof branch.latitude !== "number" ||
+        typeof branch.longitude !== "number"
+      ) {
+        return branch;
+      }
+      const kilometers = distanceInKilometers(
+        nearbyLocation.latitude,
+        nearbyLocation.longitude,
+        branch.latitude,
+        branch.longitude,
+      );
+      return {
+        ...branch,
+        evidence: {
+          ...(branch.evidence ?? { dimensions: {}, reviewCount: 0 }),
+          distanceMinutes: Math.max(1, Math.round((kilometers / 35) * 60)),
+        },
+      };
+    });
+    const matchingBranches = branchesWithDistance.filter((branch) => {
+      if (openNowOnly && !isBranchOpenNow(branch.opening_hours)) return false;
+      const venue = Array.isArray(branch.venues) ? branch.venues[0] : branch.venues;
+      if (venueType !== "all" && venue?.venue_type !== venueType) return false;
+      if (activeMood === "sunny" && branch.enrichment?.facilities?.outdoor_seating !== "yes") {
+        return false;
+      }
+      const maximumMinutes =
+        filters.radius && filters.radius !== "reasonable" ? Number(filters.radius) : null;
+      if (
+        maximumMinutes &&
+        typeof branch.evidence?.distanceMinutes === "number" &&
+        branch.evidence.distanceMinutes > maximumMinutes
+      ) {
+        return false;
+      }
+      if (filters.locationChoice === "area" && filters.manualArea?.trim()) {
+        const requestedArea = filters.manualArea.trim().toLocaleLowerCase(locale);
+        const branchLocation = [branch.name_ar, branch.name_en, branch.address_ar]
+          .filter(Boolean)
+          .join(" ")
+          .toLocaleLowerCase(locale);
+        if (!branchLocation.includes(requestedArea)) return false;
+      }
+      if (!normalizedQuery) return true;
+      const cityValue = Array.isArray(branch.cities) ? branch.cities[0] : branch.cities;
+      return [
+        venue?.name_ar,
+        venue?.name_en,
+        branch.name_ar,
+        branch.name_en,
+        branch.address_ar,
+        cityValue?.name_ar,
+        cityValue?.name_en,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase(locale).includes(normalizedQuery));
+    });
+    const ranked = rankVenues(matchingBranches, activeMatchFilters);
+    if (sort === "name") {
+      return [...ranked].sort((a, b) => venueName(a, locale).localeCompare(venueName(b, locale)));
+    }
+    if (sort === "rating") {
+      return [...ranked].sort((a, b) => venueRating(b) - venueRating(a));
+    }
+    if (sort === "distance") {
+      return [...ranked].sort(
+        (a, b) =>
+          (a.evidence?.distanceMinutes ?? Number.POSITIVE_INFINITY) -
+          (b.evidence?.distanceMinutes ?? Number.POSITIVE_INFINITY),
+      );
+    }
+    return ranked;
+  }, [
+    activeMatchFilters,
+    activeMood,
+    branches,
+    filters,
+    locale,
+    nearbyLocation,
+    openNowOnly,
+    query,
+    sort,
+    venueType,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +193,7 @@ export function DiscoveryResults() {
     const load = async () => {
       const supabase = getBrowserSupabaseClient();
       try {
-        const { data: authData } = await supabase.auth.getSession();
+        const { data: authData } = await withTimeout(supabase.auth.getSession(), 3500);
         const user = authData.session?.user;
         if (!user) {
           router.replace("/find?auth=required");
@@ -113,6 +221,12 @@ export function DiscoveryResults() {
           if (data) loadedFilters = filtersFromAnswers(data.answers);
         } else if (params.get("filters") === "active") {
           loadedFilters = readStoredFilters() ?? { priorities: [] };
+        } else {
+          loadedFilters = {
+            city: loadedProfile.preferredCity,
+            sessionType: loadedProfile.preferredSessionType,
+            priorities: loadedProfile.preferredPriorities,
+          };
         }
 
         if (cancelled) return;
@@ -129,6 +243,49 @@ export function DiscoveryResults() {
       cancelled = true;
     };
   }, [router]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const saved = JSON.parse(window.localStorage.getItem(SEARCH_STORAGE_KEY) ?? "null") as {
+          query?: string;
+          openNowOnly?: boolean;
+          sort?: SortOption;
+          venueType?: VenueTypeFilter;
+        } | null;
+        if (saved?.query) setQuery(saved.query.slice(0, 80));
+        if (saved?.openNowOnly) setOpenNowOnly(true);
+        if (saved?.sort === "distance" || saved?.sort === "rating" || saved?.sort === "name") {
+          setSort(saved.sort);
+        }
+        if (
+          saved?.venueType === "cafe" ||
+          saved?.venueType === "library" ||
+          saved?.venueType === "coworking"
+        ) {
+          setVenueType(saved.venueType);
+        }
+      } catch {
+        window.localStorage.removeItem(SEARCH_STORAGE_KEY);
+      } finally {
+        setSearchReady(true);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setNearbyLocation(readNearbyLocation()));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!searchReady) return;
+    window.localStorage.setItem(
+      SEARCH_STORAGE_KEY,
+      JSON.stringify({ query, openNowOnly, sort, venueType }),
+    );
+  }, [openNowOnly, query, searchReady, sort, venueType]);
 
   useEffect(() => {
     if (!profile) return;
@@ -159,6 +316,9 @@ export function DiscoveryResults() {
 
   function applyFilters(nextFilters: SessionFilters) {
     setFilters(nextFilters);
+    const nextLocation = readNearbyLocation();
+    setNearbyLocation(nextLocation);
+    if (nextFilters.locationChoice === "near-me" && nextLocation) setSort("distance");
     window.localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(nextFilters));
     window.history.replaceState(null, "", "/results?filters=active");
     setFilterOpen(false);
@@ -166,8 +326,25 @@ export function DiscoveryResults() {
 
   function clearFilters() {
     setFilters({ priorities: [] });
+    setActiveMood(null);
     window.localStorage.removeItem(FILTER_STORAGE_KEY);
     window.history.replaceState(null, "", "/results");
+  }
+
+  function applyMood(id: MoodPreset) {
+    const nextMood = activeMood === id ? null : id;
+    setActiveMood(nextMood);
+    if (!nextMood) {
+      clearFilters();
+      return;
+    }
+    const nextFilters = moodFilters[nextMood];
+    setFilters((current) => ({ ...current, ...nextFilters, city }));
+    window.localStorage.setItem(
+      FILTER_STORAGE_KEY,
+      JSON.stringify({ ...filters, ...nextFilters, city }),
+    );
+    window.history.replaceState(null, "", "/results?filters=active");
   }
 
   async function saveProfile(priorities: Priority[]) {
@@ -220,6 +397,90 @@ export function DiscoveryResults() {
           {filtersActive ? copy.filteredSubtitle : copy.browseSubtitle}
         </p>
 
+        <div className="sticky top-3 z-20 mt-6 rounded-[1.4rem] border border-white/70 bg-[hsl(var(--surface-raised)/0.9)] p-3 shadow-[0_12px_38px_hsl(var(--shadow-color)/0.12)] backdrop-blur-xl">
+          <label className="relative block">
+            <span
+              className="pointer-events-none absolute inset-y-0 start-4 grid place-items-center"
+              aria-hidden="true"
+            >
+              🔎
+            </span>
+            <span className="sr-only">{copy.searchLabel}</span>
+            <input
+              type="search"
+              value={query}
+              maxLength={80}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={copy.searchPlaceholder}
+              className="find-input min-h-12 ps-11 text-sm"
+            />
+          </label>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {moodPresets[locale].map((mood) => (
+              <button
+                key={mood.id}
+                type="button"
+                className="focus-chip"
+                aria-pressed={activeMood === mood.id}
+                onClick={() => applyMood(mood.id)}
+              >
+                <span aria-hidden="true">{mood.emoji}</span>
+                {mood.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {(["riyadh", "majmaah"] as City[]).map((cityOption) => (
+              <button
+                key={cityOption}
+                type="button"
+                className="focus-chip min-h-10"
+                aria-pressed={city === cityOption}
+                onClick={() => setFilters((current) => ({ ...current, city: cityOption }))}
+              >
+                {copy.cityLabel(cityOption)}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="focus-chip min-h-10"
+              aria-pressed={openNowOnly}
+              onClick={() => setOpenNowOnly((value) => !value)}
+            >
+              <span aria-hidden="true">🟢</span>
+              {copy.openNow}
+            </button>
+            <label className="flex min-h-10 items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--surface-raised))] px-3 text-xs font-semibold">
+              <span>{copy.typeLabel}</span>
+              <select
+                value={venueType}
+                onChange={(event) => setVenueType(event.target.value as VenueTypeFilter)}
+                className="bg-transparent outline-none"
+              >
+                <option value="all">{copy.typeAll}</option>
+                <option value="cafe">{copy.typeCafe}</option>
+                <option value="library">{copy.typeLibrary}</option>
+                <option value="coworking">{copy.typeCoworking}</option>
+              </select>
+            </label>
+            <label className="ms-auto flex min-h-10 items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--surface-raised))] px-3 text-xs font-semibold">
+              <span>{copy.sortLabel}</span>
+              <select
+                value={sort}
+                onChange={(event) => setSort(event.target.value as SortOption)}
+                className="bg-transparent outline-none"
+              >
+                <option value="match">{copy.sortMatch}</option>
+                <option value="distance" disabled={!nearbyLocation}>
+                  {copy.sortDistance}
+                </option>
+                <option value="rating">{copy.sortRating}</option>
+                <option value="name">{copy.sortName}</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -227,6 +488,13 @@ export function DiscoveryResults() {
             className="find-primary-button min-h-11 text-xs"
           >
             {copy.filterAction}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/find?mode=session")}
+            className="focus-chip min-h-11"
+          >
+            🧠 {copy.startQuiz}
           </button>
           {filtersActive ? (
             <button
@@ -258,7 +526,9 @@ export function DiscoveryResults() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-xs font-semibold text-sky-800">{copy.cityLabel(city)}</p>
-              <h2 className="mt-1 text-xl font-semibold text-slate-950">{copy.placesTitle}</h2>
+              <h2 className="mt-1 text-xl font-semibold text-[hsl(var(--panel-foreground))]">
+                {copy.placesTitle}
+              </h2>
             </div>
             {!filtersActive ? (
               <span className="text-xs text-slate-500">{copy.focusScoreNote}</span>
@@ -371,6 +641,7 @@ const arabicCopy = {
   browseSubtitle: "تصفح بهدوء، أو فلتر جلستك إذا عندك احتياج محدد اليوم.",
   filteredSubtitle: "الترتيب هنا مبني على الفلاتر المفعلة والبيانات المتاحة لكل فرع.",
   filterAction: "فلتر جلستك 🎯",
+  startQuiz: "اختبار المطابقة",
   clearFilters: "مسح الفلاتر",
   activeFilters: "الفلاتر المفعلة",
   logout: "تسجيل الخروج",
@@ -382,6 +653,19 @@ const arabicCopy = {
   widenSearch: "وسع البحث شوي",
   loadError: "ما قدرنا نحمّل الأماكن الآن.",
   tryAgain: "جرّب مرة ثانية",
+  searchLabel: "ابحث عن مكان أو حي",
+  searchPlaceholder: "اسم المكان أو الحي…",
+  openNow: "مفتوح الآن",
+  sortLabel: "رتّب:",
+  sortMatch: "الأنسب",
+  sortDistance: "الأقرب",
+  sortRating: "الأعلى تقييمًا",
+  sortName: "الاسم",
+  typeLabel: "النوع:",
+  typeAll: "الكل",
+  typeCafe: "مقهى",
+  typeLibrary: "مكتبة",
+  typeCoworking: "عمل مشترك",
 };
 
 const englishCopy = {
@@ -393,6 +677,7 @@ const englishCopy = {
   filteredSubtitle:
     "Ranking uses your active filters and the structured data available for each branch.",
   filterAction: "Filter your session 🎯",
+  startQuiz: "Matching quiz",
   clearFilters: "Clear filters",
   activeFilters: "Active filters",
   logout: "Log out",
@@ -404,4 +689,110 @@ const englishCopy = {
   widenSearch: "Try widening your search",
   loadError: "We couldn’t load places right now.",
   tryAgain: "Try again",
+  searchLabel: "Search for a place or neighborhood",
+  searchPlaceholder: "Place or neighborhood…",
+  openNow: "Open now",
+  sortLabel: "Sort:",
+  sortMatch: "Best match",
+  sortDistance: "Nearest",
+  sortRating: "Top rated",
+  sortName: "Name",
+  typeLabel: "Type:",
+  typeAll: "All",
+  typeCafe: "Cafe",
+  typeLibrary: "Library",
+  typeCoworking: "Coworking",
 };
+
+const moodFilters: Record<MoodPreset, Partial<SessionFilters>> = {
+  detective: { sessionType: "deep-focus", priorities: ["quiet", "outlets", "wifi"] },
+  couch: { sessionType: "light-study", priorities: ["comfort", "long-stay", "restrooms"] },
+  quick: { sessionType: "quick-study", priorities: ["parking", "outlets", "coffee"], radius: "10" },
+  group: { sessionType: "group-study", priorities: ["comfort", "food", "wifi"] },
+  sunny: { sessionType: "light-study", priorities: ["comfort", "coffee", "parking"] },
+  class: { sessionType: "online-class", priorities: ["wifi", "outlets", "quiet"] },
+};
+
+const moodPresets: Record<"ar" | "en", Array<{ id: MoodPreset; emoji: string; label: string }>> = {
+  ar: [
+    { id: "detective", emoji: "🕵️", label: "وضع المحقق" },
+    { id: "couch", emoji: "🛋️", label: "جلسة طويلة" },
+    { id: "quick", emoji: "⚡", label: "إنجاز سريع" },
+    { id: "group", emoji: "👥", label: "مع القروب" },
+    { id: "sunny", emoji: "🌤️", label: "جو حلو" },
+    { id: "class", emoji: "🎧", label: "كلاس أو اجتماع" },
+  ],
+  en: [
+    { id: "detective", emoji: "🕵️", label: "Detective mode" },
+    { id: "couch", emoji: "🛋️", label: "Long session" },
+    { id: "quick", emoji: "⚡", label: "Quick win" },
+    { id: "group", emoji: "👥", label: "With the group" },
+    { id: "sunny", emoji: "🌤️", label: "Good vibes" },
+    { id: "class", emoji: "🎧", label: "Class or call" },
+  ],
+};
+
+function venueName(branch: Branch, locale: "ar" | "en") {
+  const venue = Array.isArray(branch.venues) ? branch.venues[0] : branch.venues;
+  return (locale === "ar" ? venue?.name_ar : venue?.name_en) || venue?.name_en || "";
+}
+
+function venueRating(branch: Branch) {
+  const score = branch.evidence ? calculateFocusScore(branch.evidence) : null;
+  if (score?.status === "scored") return score.score;
+  return branch.enrichment?.preliminaryRating ?? -1;
+}
+
+function isBranchOpenNow(hours: Branch["opening_hours"]) {
+  if (!hours?.length) return false;
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Riyadh",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date()).map((part) => [part.type, part.value]),
+  );
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const today = hours.find((item) => item.day_of_week === dayMap[parts.weekday]);
+  if (!today || today.is_closed || !today.opens_at || !today.closes_at) return false;
+  const current = `${parts.hour}:${parts.minute}`;
+  const opensAt = today.opens_at.slice(0, 5);
+  const closesAt = today.closes_at.slice(0, 5);
+  if (closesAt < opensAt) return current >= opensAt || current < closesAt;
+  return current >= opensAt && current < closesAt;
+}
+
+function readNearbyLocation(): NearbyLocation | null {
+  try {
+    const value = JSON.parse(
+      window.sessionStorage.getItem("focus-nearby-location-v1") ?? "null",
+    ) as NearbyLocation | null;
+    if (
+      !value ||
+      value.expiresAt <= Date.now() ||
+      !Number.isFinite(value.latitude) ||
+      !Number.isFinite(value.longitude)
+    ) {
+      window.sessionStorage.removeItem("focus-nearby-location-v1");
+      return null;
+    }
+    return value;
+  } catch {
+    window.sessionStorage.removeItem("focus-nearby-location-v1");
+    return null;
+  }
+}
+
+function distanceInKilometers(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const earthRadius = 6371;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = toRadians(lat2 - lat1);
+  const longitudeDelta = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(longitudeDelta / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}

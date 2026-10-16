@@ -1,6 +1,7 @@
 "use client";
 
 import { LanguageSwitcher } from "@/components/experience/language-switcher";
+import { ThemeToggle } from "@/components/experience/theme-toggle";
 import { HeaderActions } from "@/components/layout/header-actions";
 import { useLocale } from "@/features/i18n/locale-provider";
 import { messages } from "@/features/i18n/messages";
@@ -39,6 +40,7 @@ export function SiteHeader() {
 
       <div className="order-3 flex w-full shrink-0 items-center justify-center gap-2 sm:order-none sm:w-auto sm:justify-end">
         <HeaderActions />
+        <ThemeToggle />
         <LanguageSwitcher />
       </div>
     </header>

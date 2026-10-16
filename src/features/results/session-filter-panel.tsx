@@ -95,7 +95,15 @@ export function SessionFilterPanel({
 
     setLocationStatus("requesting");
     navigator.geolocation.getCurrentPosition(
-      () => {
+      (position) => {
+        window.sessionStorage.setItem(
+          "focus-nearby-location-v1",
+          JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            expiresAt: Date.now() + 30 * 60 * 1000,
+          }),
+        );
         setLocationStatus("ready");
         setFilters((current) => ({ ...current, locationChoice: "near-me", manualArea: undefined }));
       },
@@ -123,19 +131,19 @@ export function SessionFilterPanel({
         role="dialog"
         aria-modal="true"
         aria-labelledby="session-filter-title"
-        className="relative max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem] sm:p-7"
+        className="focus-surface relative max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-t-[2rem] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[2rem] sm:p-7"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="session-filter-title" className="text-2xl font-semibold text-slate-950">
+            <h2 id="session-filter-title" className="text-2xl font-semibold">
               {copy.title}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">{copy.subtitle}</p>
+            <p className="focus-muted-text mt-2 text-sm leading-6">{copy.subtitle}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600"
+            className="focus-icon-button shrink-0"
             aria-label={copy.close}
           >
             ×
@@ -220,7 +228,7 @@ export function SessionFilterPanel({
 function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mt-6">
-      <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+      <h3 className="text-sm font-semibold text-[hsl(var(--panel-foreground))]">{title}</h3>
       <div className="mt-3 flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -242,8 +250,8 @@ function FilterChip({
       onClick={onClick}
       className={`min-h-11 rounded-full border px-3.5 py-2 text-sm font-medium transition ${
         active
-          ? "border-sky-300 bg-sky-50 text-sky-950 shadow-sm"
-          : "border-slate-200 bg-white text-slate-600"
+          ? "border-[hsl(var(--focus-accent)/0.6)] bg-[hsl(var(--focus-accent-soft))] text-[hsl(var(--focus-accent))] shadow-sm"
+          : "border-[hsl(var(--border))] bg-[hsl(var(--surface-raised))] text-[hsl(var(--muted-foreground))]"
       }`}
     >
       {label} {active ? "✓" : ""}

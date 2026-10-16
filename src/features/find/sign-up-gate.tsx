@@ -196,7 +196,7 @@ export function SignUpGate({
       <div className="animate-find-step py-8 text-center" aria-live="polite">
         <div className="text-5xl">✉️</div>
         <h1 className="mt-6 text-3xl font-semibold tracking-tight">{copy.confirmEmailTitle}</h1>
-        <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-slate-600 sm:text-base">
+        <p className="focus-muted-text mx-auto mt-4 max-w-md text-sm leading-7 sm:text-base">
           {copy.confirmEmailDescription}
         </p>
         <button
@@ -220,12 +220,12 @@ export function SignUpGate({
         <h1 className="mt-3 text-3xl leading-tight font-semibold tracking-tight sm:text-4xl">
           {copy.signupTitle}
         </h1>
-        <p className="mt-3 max-w-lg text-sm leading-7 text-slate-600 sm:text-base">
+        <p className="focus-muted-text mt-3 max-w-lg text-sm leading-7 sm:text-base">
           {mode === "signup" ? copy.signupDescription : copy.loginDescription}
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-2 rounded-full bg-slate-100 p-1" role="tablist">
+      <div className="focus-soft-surface mt-6 grid grid-cols-2 rounded-full p-1" role="tablist">
         {(["signup", "login"] as const).map((item) => (
           <button
             key={item}
@@ -234,7 +234,9 @@ export function SignUpGate({
             aria-selected={mode === item}
             onClick={() => changeMode(item)}
             className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors ${
-              mode === item ? "bg-white text-sky-950 shadow-sm" : "text-slate-500"
+              mode === item
+                ? "bg-[hsl(var(--surface-raised))] text-[hsl(var(--panel-foreground))] shadow-sm"
+                : "text-[hsl(var(--muted-foreground))]"
             }`}
           >
             {item === "signup" ? copy.signupTab : copy.loginTab}
@@ -266,7 +268,7 @@ export function SignUpGate({
             />
             <span
               id="username-help"
-              className="mt-2 flex min-h-5 items-center justify-between gap-3 text-xs text-slate-500"
+              className="focus-muted-text mt-2 flex min-h-5 items-center justify-between gap-3 text-xs"
             >
               <span>{username && !usernameValid ? copy.invalidUsername : copy.usernameNote}</span>
               {availabilityText ? (
@@ -333,7 +335,7 @@ export function SignUpGate({
           </span>
           {mode === "signup" ? (
             <span
-              className={`mt-2 block text-xs ${password && !passwordValid ? "text-rose-700" : "text-slate-500"}`}
+              className={`mt-2 block text-xs ${password && !passwordValid ? "text-rose-700" : "focus-muted-text"}`}
             >
               {password && !passwordValid ? copy.invalidPassword : copy.passwordHint}
             </span>
