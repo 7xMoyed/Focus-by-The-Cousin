@@ -45,8 +45,9 @@ domain verified in Resend. Both are server-only variables. The public destinatio
 Search Console; do not include the surrounding HTML tag.
 
 To check live venue data locally, open `http://localhost:3000/api/venues`. It returns published
-branches from Supabase, or an empty list when none are available. Filter by city with
-`?city=riyadh` or `?city=majmaah`.
+branches from Supabase, an empty list when the connected project has no published branches, or a
+`503` response when venue data is temporarily unavailable. Filter by city with `?city=riyadh` or
+`?city=majmaah`.
 
 ## Quality checks
 

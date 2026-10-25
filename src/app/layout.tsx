@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
-import { cookies } from "next/headers";
+import Script from "next/script";
 
 import { LocaleProvider } from "@/features/i18n/locale-provider";
 import { ThemeProvider } from "@/features/theme/theme-provider";
@@ -54,16 +54,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const savedTheme = (await cookies()).get("focus-theme")?.value;
-  const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : undefined;
+const themeBootScript = `
+  try {
+    const saved = localStorage.getItem("focus-theme-v1");
+    const theme = saved === "light" || saved === "dark"
+      ? saved
+      : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  } catch {}
+`;
 
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="ar" dir="rtl" data-theme={theme} suppressHydrationWarning>
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body className={thmanyah.variable}>
         <ThemeProvider>
           <LocaleProvider>{children}</LocaleProvider>
         </ThemeProvider>
+        <Script id="focus-theme" strategy="beforeInteractive">
+          {themeBootScript}
+        </Script>
       </body>
     </html>
   );

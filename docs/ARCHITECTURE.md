@@ -79,11 +79,12 @@ overwrites the Focus Profile.
 
 ## Supabase and PostGIS
 
-Supabase PostgreSQL is the persistence layer. The current client uses only the publishable key;
-row-level security limits public reads to published branches and approved reviews. PostGIS is
-installed in the connected project, but radius, distance, and nearest-venue queries are not yet
-implemented. Privileged database access should be introduced through server-only modules, with
-generated database types checked into the repository after the schema is stabilized.
+Supabase PostgreSQL is the persistence layer. The public browser client uses only the publishable
+key; row-level security limits public reads to published branches and approved reviews. PostGIS
+support, a generated geography point, a GiST index and a bounded nearby-branch function are defined
+in the additive migrations. The public discovery API still needs to call that function before
+distance sorting is considered complete. Privileged database access stays in server-only founder
+routes, with generated database types to be checked into the repository after the schema is stable.
 
 Public environment values may use the `NEXT_PUBLIC_` prefix. Service-role keys and other privileged
 credentials must never be exposed to client bundles or committed to the repository.

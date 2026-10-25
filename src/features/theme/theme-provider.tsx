@@ -41,15 +41,6 @@ function applyTheme(preference: ThemePreference) {
   document.documentElement.style.colorScheme = resolved;
 }
 
-function persistThemeCookie(preference: ThemePreference) {
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  if (preference === "system") {
-    document.cookie = `focus-theme=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
-    return;
-  }
-  document.cookie = `focus-theme=${preference}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
-}
-
 const ThemeContext = createContext<{
   preference: ThemePreference;
   resolvedTheme: ResolvedTheme;
@@ -71,7 +62,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       window.localStorage.setItem(preferenceKey, nextPreference);
     }
-    persistThemeCookie(nextPreference);
     applyTheme(nextPreference);
     listeners.forEach((listener) => listener());
   }
