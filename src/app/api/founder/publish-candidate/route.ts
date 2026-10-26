@@ -17,6 +17,8 @@ type PublishableCandidate = {
   branch_name_en: string | null;
   city_code: string;
   address_ar: string | null;
+  latitude: number | null;
+  longitude: number | null;
   google_maps_url: string | null;
   official_instagram_url: string | null;
   official_website_url: string | null;
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from("venue_candidates")
     .select(
-      "id,research_key,status,approved_for_publication,published_branch_id,duplicate_status,venue_type,name_ar,name_en,branch_name_ar,branch_name_en,city_code,address_ar,google_maps_url,official_instagram_url,official_website_url,why_it_may_fit",
+      "id,research_key,status,approved_for_publication,published_branch_id,duplicate_status,venue_type,name_ar,name_en,branch_name_ar,branch_name_en,city_code,address_ar,latitude,longitude,google_maps_url,official_instagram_url,official_website_url,why_it_may_fit",
     )
     .eq("id", candidateId)
     .maybeSingle<PublishableCandidate>();
@@ -121,6 +123,9 @@ export async function POST(request: NextRequest) {
     slug: branchSlug,
     address_ar: data.address_ar,
     google_maps_url: data.google_maps_url,
+    ...(data.latitude !== null && data.longitude !== null
+      ? { location: `POINT(${data.longitude} ${data.latitude})` }
+      : {}),
     is_published: true,
     updated_at: new Date().toISOString(),
   };
