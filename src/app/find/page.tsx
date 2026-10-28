@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { ExperienceShell } from "@/components/experience/experience-shell";
+import { LocationDiscovery } from "@/features/discovery/location-discovery";
 import { DiscoveryFlow } from "@/features/find/discovery-flow";
 
 export const metadata: Metadata = {
@@ -21,10 +22,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function FindPage() {
+export default async function FindPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+  const { mode } = await searchParams;
+  const questionsEnabled = process.env.NEXT_PUBLIC_FOCUS_DISCOVERY_QUESTIONS_ENABLED === "true";
   return (
     <ExperienceShell>
-      <DiscoveryFlow />
+      {questionsEnabled && mode === "session" ? <DiscoveryFlow /> : <LocationDiscovery />}
     </ExperienceShell>
   );
 }

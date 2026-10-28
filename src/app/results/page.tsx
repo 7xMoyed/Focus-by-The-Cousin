@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { ExperienceShell } from "@/components/experience/experience-shell";
-import { DiscoveryResults } from "@/features/find/discovery-results";
+import { LocationDiscovery } from "@/features/discovery/location-discovery";
 
 export const metadata: Metadata = {
   title: "Your Places | أماكنك",
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function ResultsPage() {
   return (
     <ExperienceShell>
-      <DiscoveryResults />
+      <LocationDiscovery />
     </ExperienceShell>
   );
 }

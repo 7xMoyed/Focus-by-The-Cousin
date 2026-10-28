@@ -5,6 +5,7 @@ import Script from "next/script";
 
 import { LocaleProvider } from "@/features/i18n/locale-provider";
 import { ThemeProvider } from "@/features/theme/theme-provider";
+import { AuthProvider } from "@/features/auth/auth-provider";
 import { SITE_DESCRIPTION_AR, SITE_DESCRIPTION_EN, SITE_URL } from "@/lib/site";
 
 import "./globals.css";
@@ -70,7 +71,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body className={thmanyah.variable}>
         <ThemeProvider>
-          <LocaleProvider>{children}</LocaleProvider>
+          <LocaleProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </LocaleProvider>
         </ThemeProvider>
         <Script id="focus-theme" strategy="beforeInteractive">
           {themeBootScript}

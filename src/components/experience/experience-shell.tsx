@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { LanguageSwitcher } from "@/components/experience/language-switcher";
 import { ThemeToggle } from "@/components/experience/theme-toggle";
+import { DiscoveryNavigation } from "@/components/layout/discovery-navigation";
 
 const backgroundVideo =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260314_131748_f2ca2a28-fed7-44c8-b9a9-bd9acdd5ec31.mp4";
@@ -22,22 +23,23 @@ export function ExperienceShell({ children }: { children: ReactNode }) {
       </video>
       <div className="absolute inset-0 z-0 bg-[#032033]/45" aria-hidden="true" />
 
-      <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-6 sm:px-8">
+      <header className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-3 px-4 py-5 sm:flex-row sm:gap-4 sm:px-8 sm:py-6">
         <Link
           href="/"
           dir="ltr"
-          className="text-2xl tracking-tight sm:text-3xl"
+          className="max-w-full truncate text-2xl tracking-tight sm:text-3xl"
           style={{ fontFamily: '"Instrument Serif", serif' }}
         >
           Focus by The Cousin<sup className="text-xs">®</sup>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 items-center justify-center gap-1.5 sm:w-auto sm:justify-end sm:gap-2">
+          <DiscoveryNavigation />
           <ThemeToggle />
           <LanguageSwitcher />
         </div>
       </header>
 
-      <main className="relative z-10 flex w-full flex-1 items-center justify-center px-4 py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
+      <main className="relative z-10 flex w-full min-w-0 flex-1 items-center justify-center overflow-x-clip px-4 py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:px-6">
         {children}
       </main>
     </div>

@@ -4,6 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import {
+  clearPendingAuthIntent,
+  readPendingAuthIntent,
+  useAuth,
+} from "@/features/auth/auth-provider";
+import { loadCommunityState, setVenueLiked } from "@/features/community/venue-community";
 import { calculateFocusScore } from "@/lib/recommendations/focus-score";
 import { calculateMatch } from "@/lib/recommendations/matching";
 import type { ActiveMatchFilters, VenueEvidence } from "@/lib/recommendations/types";
@@ -133,6 +139,9 @@ export function RichVenueCard({
   const { photos } = usePlaceGallery({ branch: branch.id });
   const displayPhotos = branch.slug === "wee-riyadh" ? weeProvidedPhotos : photos;
   const [saved, setSaved] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+  const { user, loading: authLoading, openAuth } = useAuth();
   const focusScore = branch.evidence
     ? calculateFocusScore(branch.evidence)
     : { status: "insufficient-data" as const, reviewCount: 0 };
@@ -179,6 +188,7 @@ export function RichVenueCard({
           whyMatch: "ليش يناسبك",
           openNow: "مفتوح الآن",
           minutesAway: (minutes: number) => `حوالي ${minutes} دقيقة`,
+          like: liked ? "أعجبك" : "إعجاب",
         }
       : {
           new: "New on Focus 👀",
@@ -194,23 +204,80 @@ export function RichVenueCard({
           whyMatch: "Why it fits",
           openNow: "Open now",
           minutesAway: (minutes: number) => `About ${minutes} min away`,
+          like: liked ? "Liked" : "Like",
         };
 
   useEffect(() => {
+    if (authLoading) return;
     const timer = window.setTimeout(() => {
       try {
-        void loadSavedVenueIds().then((ids) => setSaved(ids.has(branch.id)));
+        void loadSavedVenueIds(Boolean(user?.id)).then((ids) => setSaved(ids.has(branch.id)));
       } catch {
         setSaved(false);
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [branch.id]);
+  }, [authLoading, branch.id, user?.id]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    let active = true;
+    void loadCommunityState(branch.id, user?.id).then((state) => {
+      if (!active) return;
+      setLiked(state.liked);
+      setLikeCount(state.count);
+    });
+    return () => {
+      active = false;
+    };
+  }, [authLoading, branch.id, user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    const completePending = () => {
+      const pending = readPendingAuthIntent();
+      if (!pending || pending.branchId !== branch.id) return;
+      clearPendingAuthIntent();
+      if (pending.kind === "favorite") {
+        setSaved(true);
+        void setVenueSaved(branch.id, true).catch(() => setSaved(false));
+      }
+      if (pending.kind === "like") {
+        setLiked(true);
+        setLikeCount((value) => value + 1);
+        void setVenueLiked(branch.id, user.id, true).catch(() => {
+          setLiked(false);
+          setLikeCount((value) => Math.max(0, value - 1));
+        });
+      }
+    };
+    completePending();
+    window.addEventListener("focus:authenticated", completePending);
+    return () => window.removeEventListener("focus:authenticated", completePending);
+  }, [branch.id, user]);
 
   function toggleSave() {
+    if (!user) {
+      openAuth({ kind: "favorite", branchId: branch.id }, "signup");
+      return;
+    }
     const next = !saved;
     setSaved(next);
     void setVenueSaved(branch.id, next).catch(() => undefined);
+  }
+
+  function toggleLike() {
+    if (!user) {
+      openAuth({ kind: "like", branchId: branch.id });
+      return;
+    }
+    const next = !liked;
+    setLiked(next);
+    setLikeCount((value) => Math.max(0, value + (next ? 1 : -1)));
+    void setVenueLiked(branch.id, user.id, next).catch(() => {
+      setLiked(!next);
+      setLikeCount((value) => Math.max(0, value + (next ? -1 : 1)));
+    });
   }
 
   return (
@@ -352,7 +419,7 @@ export function RichVenueCard({
           </p>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-2 border-t border-[hsl(var(--border)/0.55)] pt-4 sm:grid-cols-[1fr_auto_auto]">
+        <div className="grid grid-cols-2 gap-2 border-t border-[hsl(var(--border)/0.55)] pt-4 sm:grid-cols-[1fr_auto_auto_auto]">
           {!detailed ? (
             <Link
               href={detailHref}
@@ -383,6 +450,19 @@ export function RichVenueCard({
           >
             <BookmarkIcon filled={saved} />
             {copy.save}
+          </button>
+          <button
+            type="button"
+            onClick={toggleLike}
+            aria-pressed={liked}
+            className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 text-xs font-semibold transition-[transform,background-color,border-color,color] active:scale-95 motion-reduce:transition-none ${
+              liked
+                ? "border-rose-200 bg-rose-50 text-rose-700"
+                : "border-[hsl(var(--border))] bg-[hsl(var(--surface-raised))] text-[hsl(var(--panel-foreground))]"
+            }`}
+          >
+            <span aria-hidden="true">{liked ? "♥" : "♡"}</span>
+            {copy.like}{likeCount > 0 ? ` · ${likeCount}` : ""}
           </button>
         </div>
       </div>

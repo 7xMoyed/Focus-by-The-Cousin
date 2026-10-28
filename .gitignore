@@ -30,3 +30,5 @@ Thumbs.db
 *.tsbuildinfo
 
 .vercel
+/.codex-screens/
+/supabase/.temp/

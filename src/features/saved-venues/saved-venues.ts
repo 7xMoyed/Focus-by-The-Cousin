@@ -22,11 +22,12 @@ function writeLocalIds(ids: Set<string>) {
 }
 
 async function loadAndMerge() {
-  const localIds = readLocalIds();
   const supabase = getBrowserSupabaseClient();
   const { data: authData } = await withTimeout(supabase.auth.getSession(), 2500);
   const userId = authData.session?.user.id;
-  if (!userId) return localIds;
+  if (!userId) return new Set<string>();
+
+  const localIds = readLocalIds();
 
   const { data, error } = await supabase
     .from("saved_venues" as string)
@@ -51,22 +52,23 @@ async function loadAndMerge() {
   return merged;
 }
 
-export function loadSavedVenueIds() {
-  cachedLoad ??= loadAndMerge().catch(() => readLocalIds());
+export function loadSavedVenueIds(force = false) {
+  if (force) cachedLoad = null;
+  cachedLoad ??= loadAndMerge().catch(() => new Set<string>());
   return cachedLoad;
 }
 
 export async function setVenueSaved(branchId: string, saved: boolean) {
+  const supabase = getBrowserSupabaseClient();
+  const { data: authData } = await withTimeout(supabase.auth.getSession(), 2500);
+  const userId = authData.session?.user.id;
+  if (!userId) throw new Error("authentication_required");
+
   const localIds = readLocalIds();
   if (saved) localIds.add(branchId);
   else localIds.delete(branchId);
   writeLocalIds(localIds);
   cachedLoad = Promise.resolve(localIds);
-
-  const supabase = getBrowserSupabaseClient();
-  const { data: authData } = await withTimeout(supabase.auth.getSession(), 2500);
-  const userId = authData.session?.user.id;
-  if (!userId) return;
 
   if (saved) {
     const { error } = await supabase

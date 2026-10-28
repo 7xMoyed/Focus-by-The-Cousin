@@ -85,6 +85,7 @@ function GalleryViewer({
 }) {
   const photo = photos[index];
   const googlePhoto = photo && "googleMapsUri" in photo ? photo : null;
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -111,12 +112,12 @@ function GalleryViewer({
       onClick={onClose}
     >
       <div
-        className="max-h-full w-full max-w-5xl overflow-y-auto rounded-2xl bg-white text-slate-950"
+        className="max-h-full w-full max-w-5xl overflow-y-auto rounded-2xl border border-[#d5dee1] bg-white text-[#253b44] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-4 p-3 sm:p-4">
           <strong dir={name === "WEE" ? "ltr" : undefined}>{name}</strong>
-          <button type="button" onClick={onClose} className="min-h-10 rounded-full px-3 text-sm">
+          <button type="button" onClick={onClose} className="min-h-11 rounded-full border border-[#d5dee1] px-4 text-sm font-semibold text-[#245d68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#245d68]">
             {copy.close} ✕
           </button>
         </div>
@@ -126,6 +127,22 @@ function GalleryViewer({
           src={photo.uri}
           alt={photoAlt(photo, locale, name, index)}
           className="max-h-[65vh] w-full bg-slate-900 object-contain"
+          draggable={false}
+          onTouchStart={(event) => {
+            const touch = event.touches[0];
+            if (touch) touchStart.current = { x: touch.clientX, y: touch.clientY };
+          }}
+          onTouchEnd={(event) => {
+            const start = touchStart.current;
+            const touch = event.changedTouches[0];
+            touchStart.current = null;
+            if (!start || !touch || photos.length < 2) return;
+            const dx = touch.clientX - start.x;
+            const dy = touch.clientY - start.y;
+            if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+              setIndex((index + (dx < 0 ? 1 : -1) + photos.length) % photos.length);
+            }
+          }}
         />
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
           {googlePhoto ? (
@@ -169,21 +186,21 @@ function GalleryViewer({
           </div>
         ) : null}
         {photos.length > 1 ? (
-          <div className="flex items-center justify-between border-t border-slate-100 p-4">
+          <div className="flex items-center justify-between border-t border-[#d5dee1] p-4">
             <button
               type="button"
               onClick={() => setIndex((index - 1 + photos.length) % photos.length)}
-              className="min-h-10 rounded-full px-3 text-sm font-semibold"
+              className="min-h-11 rounded-full border border-[#d5dee1] px-4 text-sm font-semibold text-[#245d68] disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#245d68]"
             >
               {copy.previous}
             </button>
-            <span dir="ltr" className="text-sm text-slate-500">
+            <span dir="ltr" className="text-sm text-[#5b7078]">
               {index + 1} / {photos.length}
             </span>
             <button
               type="button"
               onClick={() => setIndex((index + 1) % photos.length)}
-              className="min-h-10 rounded-full px-3 text-sm font-semibold"
+              className="min-h-11 rounded-full border border-[#d5dee1] px-4 text-sm font-semibold text-[#245d68] disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#245d68]"
             >
               {copy.next}
             </button>

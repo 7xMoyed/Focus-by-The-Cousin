@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { FloatingPanel } from "@/components/experience/floating-panel";
 import { useLocale } from "@/features/i18n/locale-provider";
+import { VenueEvaluations } from "@/features/reviewer/venue-evaluations";
 import { RichVenueCard, type DisplayBranch } from "./rich-venue-card";
 
 export function VenueDetail({ branch }: { branch: DisplayBranch }) {
@@ -15,6 +16,7 @@ export function VenueDetail({ branch }: { branch: DisplayBranch }) {
           ← {locale === "ar" ? "أماكنك" : "Your places"}
         </Link>
         <RichVenueCard branch={branch} locale={locale} detailed />
+        <VenueEvaluations branchId={branch.id} />
       </div>
     </FloatingPanel>
   );
