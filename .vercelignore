@@ -1,0 +1,12 @@
+.git
+.next
+.codex-screens
+node_modules
+coverage
+supabase/.temp
+.env*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
