@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import { useLocale } from "@/features/i18n/locale-provider";
 import { loadSavedVenueIds } from "@/features/saved-venues/saved-venues";
 import { RichVenueCard, type DisplayBranch } from "@/features/venues/rich-venue-card";
+import { fetchAllPublishedVenuePages } from "@/features/venues/public-venue-api";
 
 export function FavoritesPage() {
   const router = useRouter();
@@ -21,9 +22,9 @@ export function FavoritesPage() {
     let active = true;
     void Promise.all([
       loadSavedVenueIds(true),
-      fetch("/api/venues?limit=50").then((response) => response.json() as Promise<{ branches?: DisplayBranch[] }>),
-    ]).then(([ids, payload]) => {
-      if (active) setBranches((payload.branches ?? []).filter((branch) => ids.has(branch.id)));
+      fetchAllPublishedVenuePages(),
+    ]).then(([ids, publishedBranches]) => {
+      if (active) setBranches(publishedBranches.filter((branch) => ids.has(branch.id)));
     }).finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [authLoading, user]);

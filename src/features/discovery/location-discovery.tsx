@@ -6,6 +6,7 @@ import { useAuth } from "@/features/auth/auth-provider";
 import type { City } from "@/features/find/types";
 import { useLocale } from "@/features/i18n/locale-provider";
 import type { FacilityKey } from "@/features/venues/facility-definitions";
+import { fetchAllPublishedVenuePages } from "@/features/venues/public-venue-api";
 import { RichVenueCard, type DisplayBranch } from "@/features/venues/rich-venue-card";
 
 type Stage = "welcome" | "city" | "area" | "results";
@@ -54,9 +55,8 @@ export function LocationDiscovery() {
     const timer = window.setTimeout(() => {
       setLoading(true);
       setError(false);
-      void fetch(`/api/venues?city=${city}&limit=50`, { signal: controller.signal })
-        .then((response) => (response.ok ? response.json() : Promise.reject()))
-        .then((payload: { branches?: DisplayBranch[] }) => setBranches(payload.branches ?? []))
+      void fetchAllPublishedVenuePages({ city, signal: controller.signal })
+        .then((publishedBranches) => setBranches(publishedBranches))
         .catch((reason: unknown) => {
           if ((reason as Error).name !== "AbortError") setError(true);
         })
