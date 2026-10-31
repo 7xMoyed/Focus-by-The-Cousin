@@ -32,26 +32,34 @@ reviewed data or make the history mismatch harder to recover.
 2. Re-run the read-only sentinel audit for every local migration and compare important function bodies,
    constraints, indexes, RLS policies, and seed counts—not only table existence.
 3. Export the current remote migration list and keep it with the recovery evidence.
-4. Repair the mismatched first version as one operation:
+4. Authenticate the installed Supabase CLI and link this repository to the verified production project:
 
    ```powershell
-   npx supabase@latest migration repair --project-ref zyzpvwpnqeflbjsfvgwc --status reverted 20260915075718
-   npx supabase@latest migration repair --project-ref zyzpvwpnqeflbjsfvgwc --status applied 20260915120000
+   supabase login
+   supabase link --project-ref zyzpvwpnqeflbjsfvgwc
    ```
 
-5. Mark only the already-proven, history-missing versions as applied. Do not include the two versions
+5. Repair the mismatched first version as one operation:
+
+   ```powershell
+   supabase migration repair 20260915075718 --status reverted
+   supabase migration repair 20260915120000 --status applied
+   ```
+
+6. Mark only the already-proven, history-missing versions as applied. Do not include the two versions
    already recorded remotely (`20260917213000` and `20260919190000`):
 
    ```powershell
-   npx supabase@latest migration repair --project-ref zyzpvwpnqeflbjsfvgwc --status applied `
+   supabase migration repair `
      20260915193000 20260915194500 20260916213000 `
      20260920180000 20260920193000 20260920213000 20260924150000 `
-     20261017120000 20261017123000 20261028120000
+     20261017120000 20261017123000 20261028120000 `
+     --status applied
    ```
 
-6. Run `npx supabase@latest migration list --project-ref zyzpvwpnqeflbjsfvgwc` and confirm the
-   remote and local version columns align exactly before any future `db push`.
-7. Run schema diff/advisors and smoke-test Auth, discovery, founder review, saved venues, likes,
+7. Run `supabase migration list` from the linked repository and confirm the remote and local version
+   columns align exactly before any future `db push`.
+8. Run schema diff/advisors and smoke-test Auth, discovery, founder review, saved venues, likes,
    reviewers, Storage, and nearby search.
 
 ## Required access
